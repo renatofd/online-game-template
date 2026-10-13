@@ -16,15 +16,16 @@
     "typecheck": "pnpm -r typecheck",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
-    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm maps:validate",
-    "maps:validate": "pnpm --filter @tools/assets validate-maps",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm content:validate",
     "assets:placeholder": "pnpm --filter @tools/assets placeholder-art",
     "loadtest": "pnpm --filter @tools/loadtest start",
     "init-game": "pnpm --filter @tools/template init-game",
     "build:client": "pnpm --filter @app/client build",
     "build:server": "pnpm --filter @app/server build",
     "pack:client": "pnpm --filter @tools/release pack-client",
-    "e2e": "pnpm --filter @tools/e2e test"
+    "e2e": "pnpm --filter @tools/e2e test",
+    "content:validate": "pnpm --filter @tools/assets validate-content",
+    "assets:sprites": "pnpm --filter @tools/assets export-aseprite"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
@@ -37,5 +38,5 @@
       "msgpackr-extract"
     ]
   },
-  "version": "0.3.0"
+  "version": "0.4.0"
 }

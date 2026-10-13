@@ -15,6 +15,8 @@ test("two players join the same match", async ({ browser }) => {
   expect(metrics).toMatch(/game_clients [2-9]/);
   expect(await sessionId(a)).not.toBe(await sessionId(b));
   expect(errors).toEqual([]);
+  await a.context().close();
+  await b.context().close();
 });
 
 test("pause menu leaves the match and returns to the main menu", async ({ page }) => {
@@ -30,4 +32,42 @@ test("Arabic switches the interface to right-to-left", async ({ page }) => {
   await page.locator(".ui-menu").waitFor();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   await expect(page.locator("button[type=submit]")).toHaveText("العب");
+});
+
+test("chat messages reach other players, in any script", async ({ browser }) => {
+  const a = await (await browser.newContext()).newPage();
+  const b = await (await browser.newContext()).newPage();
+  await joinMatch(a, "Eve");
+  await joinMatch(b, "Frank", "lang=ar");
+
+  await a.keyboard.press("Enter");
+  await a.keyboard.type("Olá! مرحبا 👋");
+  await a.keyboard.press("Enter");
+
+  await expect(b.locator(".ui-chat-line").last()).toContainText("Eve: Olá! مرحبا 👋");
+  // The scoreboard lists other players too (the roster is not limited by area of interest).
+  await expect(b.locator(".ui-scoreboard")).toContainText("Eve");
+  await expect(b.locator(".ui-scoreboard")).toContainText("Frank");
+  await a.context().close();
+  await b.context().close();
+});
+
+test("audio settings are saved between visits", async ({ page }) => {
+  await page.goto("/?lang=en");
+  await page.getByRole("button", { name: /Settings/ }).click();
+  await page.locator(".ui-slider input").first().fill("25");
+  await page.getByRole("button", { name: "Back" }).click();
+
+  await page.reload();
+  await page.getByRole("button", { name: /Settings/ }).click();
+  await expect(page.locator(".ui-slider input").first()).toHaveValue("25");
+});
+
+test("holding Tab shows the player list", async ({ page }) => {
+  await joinMatch(page, "Gus");
+  await page.keyboard.down("Tab");
+  await expect(page.locator(".ui-playerlist")).toBeVisible();
+  await expect(page.locator(".ui-playerlist")).toContainText("Gus");
+  await page.keyboard.up("Tab");
+  await expect(page.locator(".ui-playerlist")).toBeHidden();
 });

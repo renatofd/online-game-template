@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sanitizeName } from "./sanitize";
+import { sanitizeChat, sanitizeName } from "./sanitize";
 
 describe("sanitizeName", () => {
   it("trims and collapses whitespace", () => {
@@ -27,5 +27,16 @@ describe("sanitizeName", () => {
   it("falls back for empty or non-string input", () => {
     expect(sanitizeName("   ")).toBe("Player");
     expect(sanitizeName(42, "Guest")).toBe("Guest");
+  });
+});
+
+describe("sanitizeChat", () => {
+  it("keeps normal text and trims to the limit", () => {
+    expect(sanitizeChat("  olá   mundo  ")).toBe("olá mundo");
+    expect(sanitizeChat("x".repeat(500), 10)).toBe("x".repeat(10));
+  });
+  it("returns empty for garbage", () => {
+    expect(sanitizeChat({ evil: true })).toBe("");
+    expect(sanitizeChat("\u202E\u0000")).toBe("");
   });
 });

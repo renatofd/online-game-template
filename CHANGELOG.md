@@ -2,6 +2,47 @@
 
 Mudanças do template. Jogos derivados: leia antes de `git merge template/main`. Veja [`docs/TEMPLATE.md`](docs/TEMPLATE.md).
 
+## 0.4.0
+
+Recursos que todo jogo usa: sprites animados, áudio e componentes de interface.
+
+### Novo
+- **Sprites animados (Aseprite):**
+  - tudo em `content/sprites/` é carregado sozinho, e cada tag vira a animação `"<sprite>/<tag>"` (`animKey`), com a duração, a direção e a repetição definidas no Aseprite;
+  - `pnpm assets:sprites` exporta os `.aseprite` de `content/sprites/src/` (Aseprite ou LibreSprite);
+  - o jogador de exemplo tem animação parado/andando e vira para a direção do movimento.
+- **Áudio (`ctx.audio`):**
+  - música com troca suave (fade) e efeitos sonoros;
+  - volume de música e de efeitos e opção de silenciar tudo, salvos por jogador;
+  - silencia durante anúncios;
+  - tudo em `content/audio/music` e `content/audio/sfx` é carregado sozinho;
+  - `menuMusic` e `uiSound` no `GameModule`.
+- **Tela de configurações** (no menu e na pausa): música, efeitos, silenciar tudo e idioma.
+- **Componentes de interface (`ctx.ui`):**
+  - avisos curtos (`toast`);
+  - placar no canto, com o top 5 e a posição do próprio jogador;
+  - lista de jogadores (segurar Tab, ou 👥 no celular), alimentada por `setScores(rows)`.
+- **Chat:**
+  - Enter abre (💬 no celular);
+  - o servidor limpa o texto (`sanitizeChat`), limita o tamanho e a velocidade de envio, e o jogo pode filtrar mensagens com `filterChat`;
+  - para desligar, use `chat = false` na sala e `chat: false` no `GameModule`;
+  - funciona com qualquer escrita (direção de texto automática por linha).
+- **Jogo de exemplo:**
+  - ganha 1 ponto por segundo andando;
+  - `roster` com todos os jogadores, fora da área de interesse, alimentando o placar;
+  - aviso e som quando alguém entra ou sai;
+  - música de tema.
+- `pnpm content:validate` valida mapas, sprites e áudio (substitui `maps:validate`).
+- 14 traduções para as novas mensagens do núcleo.
+
+### Corrigido
+- No celular, a área do joystick cobria os botões do topo (☰ e ⛶). Agora os botões, o chat e a lista de jogadores ficam acima dessa área, e um teste ponta a ponta toca neles.
+
+### Breaking
+- `CORE_PROTOCOL_VERSION` passou para 3 (mensagens de chat) e `PROTOCOL_VERSION` do exemplo para 3 (`roster`).
+- `GameContext` ganhou `audio` e `ui`. Jogos que montam o contexto à mão (testes) precisam incluí-los.
+- `pnpm maps:validate` virou `pnpm content:validate`.
+
 ## 0.3.0
 
 Pronto para produção: GamePush completo, contas verificadas, deploy, observabilidade, área de interesse e testes ponta a ponta.

@@ -20,8 +20,8 @@ jobs:
         run: pnpm lint
       - name: Typecheck
         run: pnpm typecheck
-      - name: Validate maps
-        run: pnpm maps:validate
+      - name: Validate content (maps, sprites, audio)
+        run: pnpm content:validate
       - name: Unit & integration tests
         run: pnpm test
       - name: Build

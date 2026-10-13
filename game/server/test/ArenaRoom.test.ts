@@ -86,6 +86,23 @@ describe("ArenaRoom", () => {
     expect(b.state.players.get(a.sessionId)?.name).toBe("A");
   });
 
+  it("lists every player in the roster and scores walking", async () => {
+    const room = await colyseus.createRoom<ArenaState>(ROOM_ARENA, {});
+    const a = await colyseus.connectTo(room, { v, name: "A" });
+    await colyseus.connectTo(room, { v, name: "B" });
+    expect(room.state.roster.size).toBe(2);
+
+    const input = a.input<MoveInput>({ mode: "reliable" });
+    input.data.moveX = 1;
+    input.data.moveY = 1;
+    for (let i = 0; i < 40; i++) input.send();
+    await vi.waitFor(() => expect(room.state.roster.get(a.sessionId)?.score).toBeGreaterThanOrEqual(1), {
+      timeout: 4000,
+    });
+    // The roster is not AoI-filtered: A sees B's entry even though B is far away.
+    await vi.waitFor(() => expect(a.state.roster.size).toBe(2));
+  });
+
   it("removes the player on leave", async () => {
     const room = await colyseus.createRoom<ArenaState>(ROOM_ARENA, {});
     await colyseus.connectTo(room, { v });
@@ -95,5 +112,6 @@ describe("ArenaRoom", () => {
     await leaving.leave();
     await vi.waitFor(() => expect(room.state.players.has(leaving.sessionId)).toBe(false));
     expect(room.state.players.size).toBe(1);
+    expect(room.state.roster.has(leaving.sessionId)).toBe(false);
   });
 });

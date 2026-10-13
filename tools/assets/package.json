@@ -3,11 +3,12 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Content pipeline scripts: placeholder art generation and map validation.",
+  "description": "Content pipeline scripts: placeholder art, Aseprite export and content validation.",
   "scripts": {
     "placeholder-art": "tsx src/generate-placeholder.ts",
-    "validate-maps": "tsx src/validate-maps.ts",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "validate-content": "tsx src/validate-content.ts",
+    "export-aseprite": "tsx src/export-aseprite.ts"
   },
   "dependencies": {
     "@core/maps": "workspace:*",

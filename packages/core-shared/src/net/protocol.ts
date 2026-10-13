@@ -5,7 +5,7 @@
  * (join options, error codes, core messages). Games bump their own
  * `PROTOCOL_VERSION` when their schemas or messages change.
  */
-export const CORE_PROTOCOL_VERSION = 2;
+export const CORE_PROTOCOL_VERSION = 3;
 
 /** Protocol versions a client must send when joining. Both must match the server. */
 export interface ProtocolVersions {
@@ -53,3 +53,19 @@ export const CoreErrorCode = {
   AUTH_FAILED: 4302,
 } as const;
 export type CoreErrorCode = (typeof CoreErrorCode)[keyof typeof CoreErrorCode];
+
+/** Messages handled by the core (games use their own names; avoid the "core:" prefix). */
+export const CoreMessage = {
+  /** client → server: string. server → clients: ChatBroadcast. */
+  chat: "core:chat",
+  /** server → client: the last chat message was rejected (rate limit). */
+  chatRejected: "core:chat-rejected",
+} as const;
+
+/** A chat line as broadcast by the server. Text is already sanitized. */
+export interface ChatBroadcast {
+  /** Session id of the sender. */
+  from: string;
+  name: string;
+  text: string;
+}

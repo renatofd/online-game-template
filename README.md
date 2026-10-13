@@ -6,9 +6,9 @@ Base para jogos online web: começa como um jogo estilo `.io` e foi organizada p
 
 > **Este repositório é um template.** Cada jogo novo é criado a partir dele e continua recebendo atualizações. Veja [`docs/TEMPLATE.md`](docs/TEMPLATE.md).
 >
-> Já vem pronto: servidor autoritativo com predição no cliente, reconexão, checagem de versão e área de interesse; GamePush (contas verificadas no servidor, anúncios, leaderboard); menus, telas de erro e resultado; 14 idiomas (com árabe RTL); teclado, controle e joystick de toque; mapas do Tiled; Docker, métricas e CI com testes ponta a ponta. O jogo de exemplo ("Arena Demo") só anda pelo mapa.
+> Já vem pronto: servidor autoritativo com predição no cliente, reconexão, checagem de versão e área de interesse; GamePush (contas verificadas no servidor, anúncios, leaderboard); menus, configurações de som, chat, placar e lista de jogadores, telas de erro e resultado; sprites animados do Aseprite e áudio carregados automaticamente; 14 idiomas (com árabe RTL); teclado, controle e joystick de toque; mapas do Tiled; Docker, métricas e CI com testes ponta a ponta. O jogo de exemplo ("Arena Demo") só anda pelo mapa e ganha pontos andando.
 
-| Celular (joystick, japonês) | Menu em árabe (RTL) |
+| Celular (joystick, chat, placar) | Menu em árabe (RTL) |
 |---|---|
 | ![](docs/images/mobile.png) | ![](docs/images/menu-ar.png) |
 
@@ -41,7 +41,8 @@ Abra http://localhost:3000 em **duas ou mais abas** para ver os jogadores sincro
 | `pnpm test` | Testes unitários e de integração (Vitest) |
 | `pnpm typecheck` | Checagem de tipos em todos os pacotes |
 | `pnpm lint` / `pnpm lint:fix` | Revisão automática de código e formatação (Biome) |
-| `pnpm maps:validate` | Confere se os mapas seguem as convenções do projeto |
+| `pnpm content:validate` | Confere mapas, sprites e áudio |
+| `pnpm assets:sprites` | Exporta os `.aseprite` de `content/sprites/src/` (precisa do Aseprite/LibreSprite) |
 | `pnpm check` | Tudo acima de uma vez (o mesmo que a CI roda) |
 | `pnpm build` | Build de produção do cliente (`apps/client/dist`) e do servidor (`apps/server/build`) |
 | `pnpm pack:client` | Gera o `.zip` do cliente para GamePush/itch.io (depois do build) |

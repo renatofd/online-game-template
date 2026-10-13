@@ -10,6 +10,8 @@ import {
   MoveInput,
   Player,
   PROTOCOL_VERSION,
+  RosterEntry,
+  SECONDS_PER_POINT,
   stepPlayer,
   TICK_RATE,
   TILE_SIZE,
@@ -44,6 +46,8 @@ export class ArenaRoom extends GameRoom<{ state: ArenaState; input: MoveInput }>
   private map!: GameMap;
   private spawnCursor = 0;
   private tick = 0;
+  /** Seconds each player has walked since their last point. */
+  private walked = new Map<string, number>();
   /** Area of interest: each client only receives nearby players. */
   private interest = new InterestManager<Player>({ radius: INTEREST_RADIUS });
 
@@ -68,6 +72,7 @@ export class ArenaRoom extends GameRoom<{ state: ArenaState; input: MoveInput }>
       client.sessionId,
       new Player({ name: this.identity(client).name, x: spawn.x, y: spawn.y, vx: 0, vy: 0 }),
     );
+    this.state.roster.set(client.sessionId, new RosterEntry({ name: this.identity(client).name, score: 0 }));
     this.interest.addViewer(client);
     this.updateInterest();
   }
@@ -75,6 +80,8 @@ export class ArenaRoom extends GameRoom<{ state: ArenaState; input: MoveInput }>
   override onLeave(client: Client, _code: CloseCode) {
     this.interest.removeViewer(client);
     this.state.players.delete(client.sessionId);
+    this.state.roster.delete(client.sessionId);
+    this.walked.delete(client.sessionId);
   }
 
   /**
@@ -86,8 +93,18 @@ export class ArenaRoom extends GameRoom<{ state: ArenaState; input: MoveInput }>
       const channel = this.inputs.get(sessionId);
       if (!channel) continue;
       for (const input of channel) stepPlayer(player, input, ctx.dt, this.map.collision);
+      if (player.vx !== 0 || player.vy !== 0) this.awardWalking(sessionId, ctx.dt);
     }
     if (++this.tick % INTEREST_EVERY_TICKS === 0) this.updateInterest();
+  }
+
+  /** EXAMPLE RULE: walking earns points. Replace with your game's scoring. */
+  private awardWalking(sessionId: string, dt: number) {
+    const total = (this.walked.get(sessionId) ?? 0) + dt;
+    const points = Math.floor(total / SECONDS_PER_POINT);
+    this.walked.set(sessionId, total - points * SECONDS_PER_POINT);
+    const entry = this.state.roster.get(sessionId);
+    if (entry && points > 0) entry.score += points;
   }
 
   private updateInterest() {

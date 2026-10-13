@@ -5,8 +5,12 @@
  *
  * Outputs:
  *   content/tilesets/terrain.png  4 tiles, 16x16, extruded (margin 1, spacing 2)
- *   content/sprites/player.png    16x16 player (white body so it can be tinted)
+ *   content/sprites/player.png    player sheet, 6 frames (idle, walk), white body so it can be tinted
+ *   content/sprites/player.json   Aseprite-format data with the animation tags
  *   content/maps/arena.tmj        sample map with embedded tileset
+ *   content/audio/sfx/join.wav    "player joined" blip
+ *   content/audio/sfx/ui.wav      UI tick (settings slider feedback)
+ *   content/audio/music/theme.wav short chiptune loop
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -126,9 +130,10 @@ function buildTileset(): PNG {
   return png;
 }
 
-// ─── Player sprite ──────────────────────────────────────────────────────────
+// ─── Player sprite (animated, Aseprite JSON format) ─────────────────────────
 
-const PLAYER_ART = [
+/** Body shared by every frame; rows 13-15 (feet) differ per frame. */
+const PLAYER_BODY = [
   "................",
   "................",
   ".....######.....",
@@ -142,25 +147,80 @@ const PLAYER_ART = [
   "...#wwssssww#...",
   "....#wwwwww#....",
   ".....######.....",
-  "....##....##....",
-  "................",
-  "................",
+];
+const FEET = {
+  stand: ["....##....##....", "................", "................"],
+  left: ["...##......##...", "............##..", "................"],
+  right: ["...##......##...", "..##............", "................"],
+};
+/** Blink frame: eyes closed. */
+const BLINK_ROWS: Record<number, string> = { 6: "...#wwwwwwww#...", 7: "...#w##ww##w#..." };
+
+interface PlayerFrame {
+  feet: keyof typeof FEET;
+  blink?: boolean;
+  bob?: number;
+  duration: number;
+}
+
+/** idle: 0-1, walk: 2-5. Mirrors what an artist would tag in Aseprite. */
+const PLAYER_FRAMES: PlayerFrame[] = [
+  { feet: "stand", duration: 900 },
+  { feet: "stand", blink: true, duration: 150 },
+  { feet: "left", duration: 120 },
+  { feet: "stand", bob: -1, duration: 120 },
+  { feet: "right", duration: 120 },
+  { feet: "stand", bob: -1, duration: 120 },
+];
+const PLAYER_TAGS = [
+  { name: "idle", from: 0, to: 1, direction: "forward", color: "#000000ff" },
+  { name: "walk", from: 2, to: 5, direction: "forward", color: "#000000ff" },
 ];
 
-function buildPlayer(): PNG {
-  const png = new PNG({ width: TILE_SIZE, height: TILE_SIZE });
+function buildPlayer(): { png: PNG; json: unknown } {
+  const png = new PNG({ width: TILE_SIZE * PLAYER_FRAMES.length, height: TILE_SIZE });
   const palette: Record<string, RGBA> = {
     ".": [0, 0, 0, 0],
     "#": hex("#1b1b24"),
     w: hex("#ffffff"),
     s: hex("#c8c8d4"),
   };
-  PLAYER_ART.forEach((row, y) => {
-    [...row].forEach((ch, x) => {
-      setPx(png, x, y, palette[ch] ?? [255, 0, 255, 255]);
+  PLAYER_FRAMES.forEach((frame, i) => {
+    const rows = [...PLAYER_BODY.map((r, y) => (frame.blink && BLINK_ROWS[y]) || r), ...FEET[frame.feet]];
+    const bob = frame.bob ?? 0;
+    rows.forEach((row, y) => {
+      const ty = y + (y < PLAYER_BODY.length ? bob : 0);
+      if (ty < 0 || ty >= TILE_SIZE) return;
+      [...row].forEach((ch, x) => {
+        if (ch !== ".") setPx(png, i * TILE_SIZE + x, ty, palette[ch] ?? [255, 0, 255, 255]);
+      });
     });
   });
-  return png;
+
+  // Same structure Aseprite writes with: --format json-array --filename-format "{frame}" --list-tags
+  const json = {
+    frames: PLAYER_FRAMES.map((f, i) => ({
+      filename: String(i),
+      frame: { x: i * TILE_SIZE, y: 0, w: TILE_SIZE, h: TILE_SIZE },
+      rotated: false,
+      trimmed: false,
+      spriteSourceSize: { x: 0, y: 0, w: TILE_SIZE, h: TILE_SIZE },
+      sourceSize: { w: TILE_SIZE, h: TILE_SIZE },
+      duration: f.duration,
+    })),
+    meta: {
+      app: "https://www.aseprite.org/",
+      version: "placeholder",
+      image: "player.png",
+      format: "RGBA8888",
+      size: { w: png.width, h: png.height },
+      scale: "1",
+      frameTags: PLAYER_TAGS,
+      layers: [],
+      slices: [],
+    },
+  };
+  return { png, json };
 }
 
 // ─── Sample map ─────────────────────────────────────────────────────────────
@@ -275,9 +335,88 @@ function buildMap(tileset: PNG) {
   };
 }
 
+// ─── Audio (tiny synth, 16-bit mono WAV) ────────────────────────────────────
+
+const SAMPLE_RATE = 22050;
+
+function wav(samples: Float32Array): Buffer {
+  const data = Buffer.alloc(samples.length * 2);
+  samples.forEach((v, i) => {
+    data.writeInt16LE(Math.round(Math.max(-1, Math.min(1, v)) * 32767), i * 2);
+  });
+  const header = Buffer.alloc(44);
+  header.write("RIFF", 0);
+  header.writeUInt32LE(36 + data.length, 4);
+  header.write("WAVE", 8);
+  header.write("fmt ", 12);
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20); // PCM
+  header.writeUInt16LE(1, 22); // mono
+  header.writeUInt32LE(SAMPLE_RATE, 24);
+  header.writeUInt32LE(SAMPLE_RATE * 2, 28);
+  header.writeUInt16LE(2, 32);
+  header.writeUInt16LE(16, 34);
+  header.write("data", 36);
+  header.writeUInt32LE(data.length, 40);
+  return Buffer.concat([header, data]);
+}
+
+const noteHz = (midi: number) => 440 * 2 ** ((midi - 69) / 12);
+const square = (phase: number) => (phase % 1 < 0.5 ? 1 : -1);
+const triangle = (phase: number) => 1 - 4 * Math.abs((phase % 1) - 0.5);
+
+/** Adds a note into `out` starting at `start` seconds (simple attack/decay envelope). */
+function note(out: Float32Array, start: number, dur: number, midi: number, wave: (p: number) => number, vol: number) {
+  const hz = noteHz(midi);
+  const s0 = Math.floor(start * SAMPLE_RATE);
+  const n = Math.floor(dur * SAMPLE_RATE);
+  for (let i = 0; i < n && s0 + i < out.length; i++) {
+    const t = i / SAMPLE_RATE;
+    const env = Math.min(1, t / 0.005) * Math.max(0, 1 - t / dur) ** 1.5;
+    out[s0 + i] = (out[s0 + i] ?? 0) + wave(hz * t) * vol * env;
+  }
+}
+
+function buildJoinSfx(): Buffer {
+  const out = new Float32Array(Math.floor(SAMPLE_RATE * 0.25));
+  note(out, 0, 0.1, 76, square, 0.25);
+  note(out, 0.08, 0.16, 83, square, 0.25);
+  return wav(out);
+}
+
+function buildUiSfx(): Buffer {
+  const out = new Float32Array(Math.floor(SAMPLE_RATE * 0.06));
+  note(out, 0, 0.05, 88, square, 0.2);
+  return wav(out);
+}
+
+/** 4 bars at 120 bpm in A minor: bass on triangle, arpeggio on square. Loops seamlessly. */
+function buildTheme(): Buffer {
+  const beat = 0.5;
+  const bars = [
+    [57, 60, 64],
+    [53, 57, 60],
+    [55, 59, 62],
+    [52, 56, 59],
+  ];
+  const out = new Float32Array(Math.floor(SAMPLE_RATE * beat * 4 * bars.length));
+  bars.forEach((chord, bar) => {
+    const t0 = bar * beat * 4;
+    for (let b = 0; b < 4; b++) note(out, t0 + b * beat, beat * 0.9, (chord[0] ?? 57) - 12, triangle, 0.35);
+    for (let i = 0; i < 16; i++) {
+      const pitch = (chord[i % 3] ?? 60) + (i % 6 >= 3 ? 12 : 0);
+      note(out, t0 + i * (beat / 4), beat / 4, pitch, square, 0.08);
+    }
+  });
+  return wav(out);
+}
+
 const tileset = buildTileset();
 save(tileset, join(CONTENT_DIR, "tilesets/terrain.png"));
-save(buildPlayer(), join(CONTENT_DIR, "sprites/player.png"));
+const player = buildPlayer();
+save(player.png, join(CONTENT_DIR, "sprites/player.png"));
+writeFileSync(join(CONTENT_DIR, "sprites/player.json"), `${JSON.stringify(player.json, null, 2)}\n`);
+console.log(`wrote ${join(CONTENT_DIR, "sprites/player.json")}`);
 
 const mapPath = join(MAPS_DIR, "arena.tmj");
 mkdirSync(MAPS_DIR, { recursive: true });
@@ -288,3 +427,13 @@ const mapJson = JSON.stringify(buildMap(tileset), null, 2).replace(
 );
 writeFileSync(mapPath, `${mapJson}\n`);
 console.log(`wrote ${mapPath}`);
+
+const writeAudio = (rel: string, data: Buffer) => {
+  const path = join(CONTENT_DIR, rel);
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, data);
+  console.log(`wrote ${path}`);
+};
+writeAudio("audio/sfx/join.wav", buildJoinSfx());
+writeAudio("audio/sfx/ui.wav", buildUiSfx());
+writeAudio("audio/music/theme.wav", buildTheme());

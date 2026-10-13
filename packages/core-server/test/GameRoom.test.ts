@@ -1,8 +1,8 @@
 import { type Client, defineRoom } from "@colyseus/core";
 import { schema } from "@colyseus/schema";
 import { boot, type ColyseusTestServer } from "@colyseus/testing";
-import { CORE_PROTOCOL_VERSION, CoreErrorCode } from "@core/shared";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { type ChatBroadcast, CORE_PROTOCOL_VERSION, CoreErrorCode, CoreMessage } from "@core/shared";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { registerAccountProvider, unregisterAccountProvider } from "../src/accounts/AccountProvider";
 import { createGameServer, isOriginAllowed } from "../src/createGameServer";
 import { GameRoom, type PlayerIdentity } from "../src/GameRoom";
@@ -23,8 +23,12 @@ class AccountsOnlyRoom extends TestRoom {
   protected override allowGuests = false;
 }
 
+class NoChatRoom extends TestRoom {
+  protected override chat = false as const;
+}
+
 const server = createGameServer({
-  rooms: { test: defineRoom(TestRoom), accountsOnly: defineRoom(AccountsOnlyRoom) },
+  rooms: { test: defineRoom(TestRoom), accountsOnly: defineRoom(AccountsOnlyRoom), noChat: defineRoom(NoChatRoom) },
   protocolVersion: GAME_VERSION,
 });
 const v = { core: CORE_PROTOCOL_VERSION, game: GAME_VERSION };
@@ -88,6 +92,42 @@ describe("GameRoom", () => {
 
     const closed = await colyseus.createRoom<object>("accountsOnly", {});
     await expect(colyseus.connectTo(closed, { v })).rejects.toMatchObject({ code: CoreErrorCode.AUTH_FAILED });
+  });
+
+  it("broadcasts sanitized chat messages with the sender's name", async () => {
+    const room = await colyseus.createRoom<object>("test", {});
+    const ana = await colyseus.connectTo(room, { v, name: "Ana" });
+    const bob = await colyseus.connectTo(room, { v, name: "Bob" });
+    const received: ChatBroadcast[] = [];
+    bob.onMessage(CoreMessage.chat, (m: ChatBroadcast) => received.push(m));
+
+    ana.send(CoreMessage.chat, "  olá\u202E   pessoal  ");
+    await vi.waitFor(() => expect(received).toHaveLength(1));
+    expect(received[0]).toEqual({ from: ana.sessionId, name: "Ana", text: "olá pessoal" });
+  });
+
+  it("rate-limits chat floods and tells the sender", async () => {
+    const room = await colyseus.createRoom<object>("test", {});
+    const spammer = await colyseus.connectTo(room, { v, name: "Spam" });
+    let delivered = 0;
+    let rejected = 0;
+    spammer.onMessage(CoreMessage.chat, () => delivered++);
+    spammer.onMessage(CoreMessage.chatRejected, () => rejected++);
+
+    for (let i = 0; i < 10; i++) spammer.send(CoreMessage.chat, `msg ${i}`);
+    await vi.waitFor(() => expect(delivered + rejected).toBe(10));
+    expect(delivered).toBe(4); // the default burst
+    expect(rejected).toBe(6);
+  });
+
+  it("ignores chat when the room disables it", async () => {
+    const room = await colyseus.createRoom<object>("noChat", {});
+    const a = await colyseus.connectTo(room, { v });
+    let got = 0;
+    a.onMessage(CoreMessage.chat, () => got++);
+    a.send(CoreMessage.chat, "hello");
+    await new Promise((r) => setTimeout(r, 150));
+    expect(got).toBe(0);
   });
 
   it("serves /health, /version and /metrics", async () => {
