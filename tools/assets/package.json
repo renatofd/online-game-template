@@ -1,5 +1,5 @@
 {
-  "name": "@game/assets",
+  "name": "@tools/assets",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@game/maps": "workspace:*",
+    "@core/maps": "workspace:*",
     "@game/shared": "workspace:*"
   },
   "devDependencies": {

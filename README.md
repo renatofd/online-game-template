@@ -4,7 +4,13 @@ Base para jogos online web: começa como um jogo estilo `.io` e foi organizada p
 
 **Stack:** Phaser 4 · TypeScript · Tiled · Pixel art (nearest-neighbor, zoom inteiro) · Colyseus 0.18 (servidor autoritativo) · Vite · pnpm · Biome · Vitest
 
-> Status: **fundação.** Um jogador anda por um mapa do Tiled, vê os outros jogadores, com predição no cliente e servidor autoritativo. Ainda não há gameplay.
+> **Este repositório é um template.** Cada jogo novo é criado a partir dele e continua recebendo atualizações. Veja [`docs/TEMPLATE.md`](docs/TEMPLATE.md).
+>
+> Já vem pronto: servidor autoritativo com predição no cliente, reconexão e checagem de versão; menus, telas de erro e resultado; 14 idiomas (com árabe RTL); teclado, controle e joystick de toque; mapas do Tiled; CI. O jogo de exemplo ("Arena Demo") só anda pelo mapa.
+
+| Celular (joystick, japonês) | Menu em árabe (RTL) |
+|---|---|
+| ![](docs/images/mobile.png) | ![](docs/images/menu-ar.png) |
 
 ## Requisitos
 
@@ -19,9 +25,10 @@ pnpm install
 pnpm dev            # servidor (ws://localhost:2567) + cliente (http://localhost:3000)
 ```
 
-Abra http://localhost:3000 em **duas ou mais abas** para ver os jogadores sincronizando. Use `?name=Ana` na URL para escolher o nome.
+Abra http://localhost:3000 em **duas ou mais abas** para ver os jogadores sincronizando. O nome é digitado no menu (ou `?name=Ana` na URL).
 
-- **Simular internet ruim:** em modo dev aparece o painel de debug do Colyseus. Nele, ou no console do navegador com `__net(150, 30)` (150 ms de ping ± 30 ms de jitter), você testa lag sem precisar de outra rede. Use `__net()` para desligar.
+- **Simular internet ruim:** abra com `?debug` na URL para ver o painel de debug do Colyseus. No console do navegador, `__net(150, 30)` simula 150 ms de ping ± 30 ms de variação; `__net()` desliga. O botão **Drop** derruba a conexão para testar a reconexão.
+- **Idioma:** `?lang=ar` (ou qualquer um dos 14) força o idioma; também dá para trocar no menu.
 - **Testar no celular:** com o celular na mesma Wi-Fi, abra `http://<ip-do-seu-pc>:3000`.
 - **Bots:** com o servidor rodando, `pnpm loadtest` coloca 20 jogadores falsos andando pelo mapa.
 - **Monitor do servidor (dev):** http://localhost:2567/monitor
@@ -39,19 +46,17 @@ Abra http://localhost:3000 em **duas ou mais abas** para ver os jogadores sincro
 | `pnpm build` | Build de produção do cliente (`apps/client/dist`) e do servidor (`apps/server/build`) |
 | `pnpm loadtest` | Bots para teste de carga |
 | `pnpm assets:placeholder` | Regera a arte e o mapa provisórios (sobrescreve!) |
+| `pnpm init-game --name "Meu Jogo"` | Renomeia o projeto ao criar um jogo novo |
 
 ## Estrutura
 
 ```text
-apps/client       Cliente Phaser 4 (cenas, render, input, rede, adaptadores de plataforma)
-apps/server       Servidor Colyseus (salas, tick fixo, carregamento de mapas)
-packages/shared   Simulação de jogo pura (movimento, colisão) usada por servidor E cliente
-packages/protocol Contrato de rede: nomes de salas, schemas de estado e de input
-packages/maps     Leitura e validação de mapas Tiled sem Phaser
-content/          Fontes de conteúdo: mapas (.tmj), tilesets, sprites
-tools/assets      Geração de arte provisória e validação de mapas
-tools/loadtest    Bots para teste de carga
-docs/             Arquitetura, pesquisa, testes, decisões
+packages/core-*   NÚCLEO do template: servidor base, telas, idiomas, input, plataforma, mapas
+game/*            O JOGO: regras (shared), salas (server), cenas e textos (client)
+apps/*            Entradas finas que ligam núcleo + jogo
+content/          Mapas (.tmj), tilesets, sprites
+tools/            Arte provisória, validação de mapas, bots, init-game
+docs/             Arquitetura, pesquisa, testes, uso do template, decisões
 ```
 
 Detalhes em [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Como criar mapas: [`content/README.md`](content/README.md).
@@ -62,12 +67,17 @@ Detalhes em [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Como criar mapas: [`
 |---|---|---|---|
 | `VITE_SERVER_URL` | cliente | `ws://<host da página>:2567` | URL do servidor de jogo em produção |
 | `VITE_PLATFORM` | cliente | `web` | `web` ou `gamepush` |
+| `VITE_BUILD_ID` | cliente | `dev` | Identificador do build mostrado no menu |
+| `BUILD_ID` | servidor | `dev` | Identificador do build em `GET /version` |
 | `PORT` | servidor | `2567` | Porta do servidor |
 | `MAPS_DIR` | servidor | `<repo>/content/maps` | Pasta dos mapas `.tmj` |
 
 ## Documentação
 
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): princípios, estrutura, fluxo de dados e caminho de escalabilidade
+- [`docs/TEMPLATE.md`](docs/TEMPLATE.md): criar um jogo novo e receber atualizações do template
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): princípios, estrutura, contrato núcleo ↔ jogo, escalabilidade
 - [`docs/RESEARCH.md`](docs/RESEARCH.md): pesquisa sobre jogos online web, GamePush, hospedagem e decisões
 - [`docs/TESTING.md`](docs/TESTING.md): estratégia de testes do multiplayer (sem precisar de vários jogadores)
 - [`docs/adr/`](docs/adr/): registros de decisões de arquitetura
+- [`CHANGELOG.md`](CHANGELOG.md): mudanças por versão do template
+- [`CLAUDE.md`](CLAUDE.md): regras do projeto para agentes de IA

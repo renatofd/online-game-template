@@ -11,7 +11,7 @@ O jogo começa como `.io` (dezenas de jogadores por sala) e deve poder evoluir p
 
 ## Alternativas
 - **GamePush Multiplayer:** descartado como base. É *host-based*: um jogador mantém o estado, o que abre espaço para trapaça, faz a qualidade depender da conexão do host e não oferece caminho para zonas/MMO. Serve bem para jogos casuais de poucos jogadores.
-- **Servidor próprio (uWebSockets.js):** mais controle, mas exige escrever salas, reconexão, matchmaking e sincronização. Continua possível no futuro porque a simulação está em `packages/shared`.
+- **Servidor próprio (uWebSockets.js):** mais controle, mas exige escrever salas, reconexão, matchmaking e sincronização. Continua possível no futuro porque a simulação está em `game/shared`.
 - **Nakama / SpacetimeDB:** ver `RESEARCH.md` §4.
 
 ## Consequências

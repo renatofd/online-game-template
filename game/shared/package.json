@@ -1,0 +1,17 @@
+{
+  "name": "@game/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "GAME: rules, constants and network schemas shared by this game's server and client. Edit freely in derived repos.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@colyseus/schema": "^5.0.39",
+    "@core/shared": "workspace:*"
+  }
+}

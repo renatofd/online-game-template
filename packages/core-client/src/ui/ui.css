@@ -1,0 +1,355 @@
+/*
+ * Template core UI. Override the custom properties in your game's CSS to restyle.
+ * Uses logical properties (inline/block) so layouts mirror automatically in RTL languages.
+ */
+:root {
+  --ui-font:
+    system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Noto Sans Arabic", "Noto Sans Devanagari",
+    "Noto Sans JP", "Noto Sans SC", "Noto Sans KR", "Apple SD Gothic Neo", "Hiragino Sans", "Microsoft YaHei",
+    sans-serif;
+  --ui-bg: rgb(16 16 24 / 0.92);
+  --ui-fg: #f2f2f7;
+  --ui-muted: #a0a0b4;
+  --ui-accent: #7fe36b;
+  --ui-accent-fg: #102010;
+  --ui-border: #3a3a52;
+  --ui-radius: 4px;
+  --ui-safe-top: env(safe-area-inset-top, 0px);
+  --ui-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --ui-safe-left: env(safe-area-inset-left, 0px);
+  --ui-safe-right: env(safe-area-inset-right, 0px);
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #101018;
+  color: var(--ui-fg);
+  font-family: var(--ui-font);
+  /* No pull-to-refresh, rubber-banding, double-tap zoom or text selection while playing. */
+  overscroll-behavior: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#game {
+  position: fixed;
+  inset: 0;
+}
+
+/* Nearest-neighbour upscaling for pixel art. */
+#game canvas {
+  image-rendering: pixelated;
+}
+
+.ui-root {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.ui-root [hidden] {
+  display: none;
+}
+
+/* ─── Screens ───────────────────────────────────────────────────────────── */
+
+.ui-screen-host {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: max(16px, var(--ui-safe-top)) max(16px, var(--ui-safe-right)) max(16px, var(--ui-safe-bottom))
+    max(16px, var(--ui-safe-left));
+  background: rgb(0 0 0 / 0.35);
+  pointer-events: auto;
+  overflow-y: auto;
+  touch-action: pan-y;
+}
+
+.ui-panel {
+  background: var(--ui-bg);
+  border: 2px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  box-shadow: 0 4px 0 rgb(0 0 0 / 0.5);
+  padding: 20px 24px;
+  inline-size: min(420px, 100%);
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.ui-panel h1,
+.ui-panel h2 {
+  margin: 0 0 12px;
+  line-height: 1.2;
+}
+
+.ui-panel p {
+  margin: 8px 0;
+  line-height: 1.45;
+}
+
+.ui-title {
+  font-size: clamp(24px, 6vmin, 40px);
+  letter-spacing: 0.02em;
+}
+
+.ui-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-block: 12px;
+}
+
+.ui-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+}
+
+.ui-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-block-start: 16px;
+}
+
+.ui-input,
+.ui-select,
+.ui-button {
+  font: inherit;
+  font-size: 16px; /* >= 16px prevents iOS zoom-on-focus */
+  color: var(--ui-fg);
+  background: #24243a;
+  border: 2px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  padding: 10px 14px;
+  min-block-size: 44px; /* comfortable touch target */
+  box-sizing: border-box;
+}
+
+.ui-input {
+  text-align: center;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.ui-button {
+  cursor: pointer;
+  box-shadow: 0 3px 0 rgb(0 0 0 / 0.5);
+}
+
+.ui-button:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 rgb(0 0 0 / 0.5);
+}
+
+.ui-button.primary {
+  background: var(--ui-accent);
+  color: var(--ui-accent-fg);
+  border-color: color-mix(in srgb, var(--ui-accent) 60%, black);
+  font-weight: 700;
+}
+
+.ui-button.big {
+  font-size: 20px;
+  padding-block: 12px;
+}
+
+.ui-input:focus-visible,
+.ui-select:focus-visible,
+.ui-button:focus-visible,
+.ui-icon-button:focus-visible {
+  outline: 3px solid var(--ui-accent);
+  outline-offset: 2px;
+}
+
+.ui-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ui-footer {
+  color: var(--ui-muted);
+  font-size: 12px;
+  margin-block-end: 0;
+}
+
+.ui-progress {
+  block-size: 10px;
+  background: #24243a;
+  border: 2px solid var(--ui-border);
+  margin-block-start: 12px;
+}
+
+.ui-progress-fill {
+  block-size: 100%;
+  background: var(--ui-accent);
+}
+
+.ui-spinner {
+  inline-size: 28px;
+  block-size: 28px;
+  margin: 8px auto;
+  border: 4px solid var(--ui-border);
+  border-block-start-color: var(--ui-accent);
+  border-radius: 50%;
+  animation: ui-spin 0.8s linear infinite;
+}
+
+@keyframes ui-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-spinner {
+    animation-duration: 3s;
+  }
+}
+
+.ui-stats {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 16px;
+  text-align: start;
+  margin: 12px 0 0;
+}
+
+.ui-stats dd {
+  margin: 0;
+  font-weight: 700;
+  text-align: end;
+}
+
+/* ─── HUD ───────────────────────────────────────────────────────────────── */
+
+.ui-hud {
+  position: absolute;
+  inset: 0;
+}
+
+.ui-hud-inner {
+  position: absolute;
+  inset: 0;
+  padding: max(8px, var(--ui-safe-top)) max(8px, var(--ui-safe-right)) max(8px, var(--ui-safe-bottom))
+    max(8px, var(--ui-safe-left));
+}
+
+.ui-hud-top {
+  display: flex;
+  gap: 6px;
+  pointer-events: auto;
+  inline-size: max-content;
+}
+
+.ui-icon-button {
+  font: inherit;
+  font-size: 18px;
+  inline-size: 40px;
+  block-size: 40px;
+  color: var(--ui-fg);
+  background: rgb(16 16 24 / 0.6);
+  border: 2px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  cursor: pointer;
+}
+
+.ui-hud-stats {
+  position: absolute;
+  inset-block-end: max(6px, var(--ui-safe-bottom));
+  inset-inline-end: max(8px, var(--ui-safe-right));
+  font-size: 11px;
+  color: var(--ui-muted);
+  text-shadow: 0 1px 0 #000;
+}
+
+.ui-rotate {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #101018;
+  font-size: 20px;
+  pointer-events: auto;
+  z-index: 5;
+}
+
+/* ─── Touch controls ────────────────────────────────────────────────────── */
+
+.touch-controls {
+  position: absolute;
+  inset: 0;
+}
+
+/* Joystick zone: left half (start side; stays on the left even in RTL). */
+.touch-stick-zone {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  inline-size: 50%;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.touch-stick-base {
+  position: absolute;
+  inline-size: 112px;
+  block-size: 112px;
+  margin: -56px 0 0 -56px;
+  border-radius: 50%;
+  border: 3px solid rgb(255 255 255 / 0.35);
+  background: rgb(255 255 255 / 0.08);
+  display: none;
+}
+
+.touch-stick-base.active {
+  display: block;
+}
+
+.touch-stick-knob {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  inline-size: 48px;
+  block-size: 48px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.45);
+}
+
+.touch-buttons {
+  position: absolute;
+  right: max(20px, var(--ui-safe-right));
+  bottom: max(20px, var(--ui-safe-bottom));
+  display: flex;
+  gap: 14px;
+  pointer-events: auto;
+}
+
+.touch-button {
+  inline-size: 72px;
+  block-size: 72px;
+  border-radius: 50%;
+  border: 3px solid rgb(255 255 255 / 0.4);
+  background: rgb(255 255 255 / 0.12);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  touch-action: none;
+}
+
+.touch-button.pressed {
+  background: rgb(255 255 255 / 0.35);
+}

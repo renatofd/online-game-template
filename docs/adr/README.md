@@ -12,3 +12,5 @@ Decisões registradas:
 - [0001: Colyseus para tempo real, GamePush para plataforma](./0001-colyseus-e-gamepush.md)
 - [0002: Pixel art com resolução interna fixa e zoom inteiro](./0002-pixel-art.md)
 - [0003: Ferramentas de desenvolvimento](./0003-ferramentas.md)
+- [0004: Contas de jogador via GamePush](./0004-contas-gamepush.md)
+- [0005: Interface em DOM e 14 idiomas](./0005-interface-dom-e-idiomas.md)

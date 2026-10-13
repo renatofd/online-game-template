@@ -7,9 +7,9 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "pnpm --parallel --filter @game/server --filter @game/client dev",
-    "dev:server": "pnpm --filter @game/server dev",
-    "dev:client": "pnpm --filter @game/client dev",
+    "dev": "pnpm --parallel --filter @app/server --filter @app/client dev",
+    "dev:server": "pnpm --filter @app/server dev",
+    "dev:client": "pnpm --filter @app/client dev",
     "build": "pnpm -r build",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -17,9 +17,10 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm maps:validate",
-    "maps:validate": "pnpm --filter @game/assets validate-maps",
-    "assets:placeholder": "pnpm --filter @game/assets placeholder-art",
-    "loadtest": "pnpm --filter @game/loadtest start"
+    "maps:validate": "pnpm --filter @tools/assets validate-maps",
+    "assets:placeholder": "pnpm --filter @tools/assets placeholder-art",
+    "loadtest": "pnpm --filter @tools/loadtest start",
+    "init-game": "pnpm --filter @tools/template init-game"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
@@ -31,5 +32,6 @@
       "esbuild",
       "msgpackr-extract"
     ]
-  }
+  },
+  "version": "0.2.0"
 }

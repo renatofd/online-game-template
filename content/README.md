@@ -47,6 +47,6 @@ Na layer `objects`, adicione **pontos** (ou retângulos) com a classe **`spawn`*
 ## Adicionando um mapa novo
 
 1. Crie `content/maps/<id>.tmj` seguindo as convenções acima.
-2. Registre a URL em `apps/client/src/assets/manifest.ts` (`MAPS`). Se ele usar um tileset novo, registre também em `TILESETS`, com o **mesmo nome do tileset no Tiled**.
-3. Crie a sala com `{ mapId: "<id>" }` (veja `apps/server/src/rooms/ArenaRoom.ts`).
+2. Registre a URL em `game/client/src/assets.ts` (`MAPS`). Se ele usar um tileset novo, registre também em `TILESETS`, com o **mesmo nome do tileset no Tiled**.
+3. Crie a sala com `{ mapId: "<id>" }` (veja `game/server/src/rooms/ArenaRoom.ts`).
 4. Rode `pnpm maps:validate`.

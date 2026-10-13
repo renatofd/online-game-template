@@ -1,0 +1,15 @@
+{
+  "name": "@tools/template",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Template maintenance scripts (initialize a new game from this template).",
+  "scripts": {
+    "init-game": "tsx src/init-game.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.23.15"
+  }
+}

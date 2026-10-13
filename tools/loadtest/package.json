@@ -1,18 +1,16 @@
 {
-  "name": "@game/loadtest",
+  "name": "@tools/loadtest",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Headless bots that join the arena and wander around. For load tests and for populating rooms during playtests.",
+  "description": "Headless bots that join the game and wander around (behaviour from @game/client/bot). For load tests and for populating rooms during playtests.",
   "scripts": {
     "start": "tsx src/bots.ts --endpoint ws://localhost:2567 --room arena --numClients 20",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
     "@colyseus/loadtest": "^0.18.3",
-    "@colyseus/sdk": "^0.18.5",
-    "@game/protocol": "workspace:*",
-    "@game/shared": "workspace:*"
+    "@game/client": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

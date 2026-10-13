@@ -1,26 +1,9 @@
-import { ROOM_ARENA } from "@game/protocol";
-import { defineRoom, defineServer, monitor, playground } from "colyseus";
-import { env } from "./config/env";
-import { ArenaRoom } from "./rooms/ArenaRoom";
+/**
+ * Server composition: the template core's standard server + this game's rooms.
+ * Usually no need to edit this file; add rooms in game/server instead.
+ */
+import { createGameServer } from "@core/server";
+import { rooms } from "@game/server";
+import { PROTOCOL_VERSION } from "@game/shared";
 
-const server = defineServer({
-  rooms: {
-    [ROOM_ARENA]: defineRoom(ArenaRoom),
-  },
-
-  express: (app) => {
-    // Liveness probe for load balancers / container orchestrators.
-    app.get("/health", (_req, res) => {
-      res.json({ ok: true });
-    });
-
-    if (!env.isProduction) {
-      // Dev-only tools. Protect /monitor with a password before exposing it in production:
-      // https://docs.colyseus.io/tools/monitoring#password-protection
-      app.use("/monitor", monitor());
-      app.use("/playground", playground());
-    }
-  },
-});
-
-export default server;
+export default createGameServer({ rooms, protocolVersion: PROTOCOL_VERSION });

@@ -1,0 +1,25 @@
+{
+  "name": "@core/client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Template core: client bootstrap, screen flow (DOM UI), i18n, input (keyboard/gamepad/touch), platform adapters and networking.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./i18n": "./src/i18n/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@colyseus/sdk": "^0.18.5",
+    "@core/shared": "workspace:*"
+  },
+  "peerDependencies": {
+    "phaser": "4.2.1"
+  },
+  "devDependencies": {
+    "phaser": "4.2.1",
+    "vite": "^8.3.4"
+  }
+}

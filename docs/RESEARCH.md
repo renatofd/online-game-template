@@ -16,7 +16,7 @@
 | Serialização | **Binária** + quantização + delta de snapshots; nada de JSON no loop de jogo |
 | Escala | AoI (grid espacial) desde o dia 1; salas → processos → frota (Agones) → zonas |
 | Mapas | **Tiled** exportando `.tmj` com tilesets **embutidos** e **extrudados**; o servidor lê o mesmo arquivo |
-| Física | **Sem Arcade Physics como autoridade.** Colisão simples própria em `packages/shared` (círculo/AABB vs grid de tiles), rodando no servidor e na predição |
+| Física | **Sem Arcade Physics como autoridade.** Colisão simples própria em `@core/shared` + regras em `game/shared` (círculo/AABB vs grid de tiles), rodando no servidor e na predição |
 | Persistência (futuro) | PostgreSQL (dados duráveis) + Redis (presença, matchmaking, sessões) |
 
 ---
@@ -52,7 +52,7 @@ Referências clássicas (leitura obrigatória): Gabriel Gambetta — *Fast-Paced
 - Servidor valida tudo: velocidade máxima, cooldowns, taxa de inputs (rate limit), limites do mapa.
 
 ### 2.2 Client-side prediction + reconciliação (jogador local)
-- O cliente aplica o próprio input imediatamente usando **a mesma função de simulação do servidor** (`packages/shared`).
+- O cliente aplica o próprio input imediatamente usando **a mesma função de simulação do servidor** (`game/shared`).
 - Guarda inputs não confirmados; ao receber o estado autoritativo com o último `seq` processado, **corrige e reaplica** os inputs pendentes. Correções pequenas são suavizadas visualmente.
 - Isso só funciona se a simulação for **determinística o suficiente** e idêntica dos dois lados → motivo principal de não usar a física do Phaser como autoridade.
 
@@ -89,7 +89,7 @@ Referências clássicas (leitura obrigatória): Gabriel Gambetta — *Fast-Paced
 | **Nakama** (Go; lógica em TS/Lua/Go) | Contas, amigos, guildas, chat, leaderboards, matchmaker, storage | Pesado para começar; runtime TS embutido limitado | Bom **ao lado** do servidor de jogo para meta-features (social/LiveOps) |
 | **SpacetimeDB** | Banco + lógica no mesmo processo; usado no backend do BitCraft | Modelo muito específico, lock-in, mais jovem | Alternativa a avaliar para mundo persistente único |
 
-**Recomendação:** usar **Colyseus** para ganhar velocidade no `.io`, **mas** mantendo a simulação em `packages/shared` e o protocolo de entidades em `packages/protocol`. Se a escala MMO exigir, a sala do Colyseus pode virar só um "host" de transporte, ou ser substituída por servidor próprio, sem reescrever o jogo. Alternativa válida se preferir controle total desde já: servidor próprio em uWebSockets.js (ver §12).
+**Recomendação:** usar **Colyseus** para ganhar velocidade no `.io`, **mas** mantendo a simulação em `game/shared` (e o núcleo em `packages/core-*`). Se a escala MMO exigir, a sala do Colyseus pode virar só um "host" de transporte, ou ser substituída por servidor próprio, sem reescrever o jogo. Alternativa válida se preferir controle total desde já: servidor próprio em uWebSockets.js (ver §12).
 
 ## 5. Organização da simulação (ECS)
 
@@ -188,6 +188,9 @@ Um jogo multiplayer tem **duas partes** que são hospedadas em lugares diferente
 | 2 | Resolução / tile | 640×360, tiles 16×16, zoom inteiro, `pixelArt: true` | [ADR 0002](./adr/0002-pixel-art.md) |
 | 3 | Ferramentas | pnpm, TypeScript strict, Biome, Vitest, Vite | [ADR 0003](./adr/0003-ferramentas.md) |
 | 4 | Hospedagem | Cliente: GamePush (+ itch.io opcional). Servidor: local → Colyseus Cloud | §11 |
+| 5 | Contas | GamePush como identidade, verificada no servidor | [ADR 0004](./adr/0004-contas-gamepush.md) |
+| 6 | Interface e idiomas | UI em DOM; 14 idiomas com RTL | [ADR 0005](./adr/0005-interface-dom-e-idiomas.md) |
+| 7 | Template | Núcleo (`packages/core-*`) separado do jogo (`game/*`) | [TEMPLATE.md](./TEMPLATE.md) |
 
 > **Atualização (implementação):** na hora de criar o projeto, a versão atual do Colyseus já era a **0.18**. Ela traz de fábrica o que este documento previa construir à mão: buffer de inputs com sanitização (`defineInput`), tick fixo (`setFixedTimestep`), **predição + reconciliação** e interpolação no cliente (`@colyseus/sdk/predict`) e um **painel de debug com simulador de latência/jitter**. O template usa tudo isso.
 

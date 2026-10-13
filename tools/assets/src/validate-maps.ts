@@ -4,7 +4,8 @@
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { parseTiledMap, type TiledMap, validateTiledMap } from "@game/maps";
+import { parseTiledMap, type TiledMap, validateTiledMap } from "@core/maps";
+import { TILE_SIZE } from "@game/shared";
 import { MAPS_DIR } from "./paths";
 
 const files = readdirSync(MAPS_DIR).filter((f) => f.endsWith(".tmj"));
@@ -12,14 +13,14 @@ let failed = false;
 
 for (const file of files) {
   const map = JSON.parse(readFileSync(join(MAPS_DIR, file), "utf8")) as TiledMap;
-  const errors = validateTiledMap(map);
+  const errors = validateTiledMap(map, { tileSize: TILE_SIZE });
   if (errors.length > 0) {
     failed = true;
     console.error(`✗ ${file}`);
     for (const e of errors) console.error(`    - ${e}`);
     continue;
   }
-  const parsed = parseTiledMap(map);
+  const parsed = parseTiledMap(map, { tileSize: TILE_SIZE });
   console.log(`✓ ${file} (${parsed.width}x${parsed.height} tiles, ${parsed.spawns.length} spawns)`);
 }
 

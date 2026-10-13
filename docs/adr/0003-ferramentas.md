@@ -4,7 +4,7 @@
 
 | Ferramenta | Papel |
 |---|---|
-| **pnpm workspaces** | Monorepo: `apps/*`, `packages/*`, `tools/*` |
+| **pnpm workspaces** | Monorepo: `packages/*` (núcleo), `game/*` (jogo), `apps/*`, `tools/*` |
 | **TypeScript (strict)** | Tipos em tudo. Pacotes internos exportam `.ts` direto (sem etapa de build própria) |
 | **Vite** | Dev server e build do cliente |
 | **tsx / esbuild** | Rodar o servidor em dev / gerar o bundle de produção |

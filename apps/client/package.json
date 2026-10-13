@@ -1,9 +1,9 @@
 {
-  "name": "@game/client",
+  "name": "@app/client",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Web client (Phaser 4 + Vite).",
+  "description": "App entrypoint: the web page that boots the template core with this game. Template-owned.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -11,10 +11,8 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@colyseus/sdk": "^0.18.5",
-    "@game/maps": "workspace:*",
-    "@game/protocol": "workspace:*",
-    "@game/shared": "workspace:*",
+    "@core/client": "workspace:*",
+    "@game/client": "workspace:*",
     "phaser": "4.2.1"
   },
   "devDependencies": {
