@@ -1,0 +1,16 @@
+{
+  "name": "@tools/release",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Packages the built client as a zip ready to upload to GamePush / itch.io.",
+  "scripts": {
+    "pack-client": "tsx src/pack-client.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "fflate": "^0.8.3",
+    "tsx": "^4.23.15"
+  }
+}

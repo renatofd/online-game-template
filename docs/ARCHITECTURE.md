@@ -20,9 +20,9 @@
 ```text
 online-game-template/
 ├── packages/                         NÚCLEO (template). Não editar nos jogos.
-│   ├── core-shared/   @core/shared   Colisão com grid de tiles, versões e códigos de erro, sanitizeName
+│   ├── core-shared/   @core/shared   Colisão, SpatialHash, versões e códigos de erro, sanitizeName
 │   ├── core-maps/     @core/maps     Leitura e validação de mapas Tiled (sem Phaser)
-│   ├── core-server/   @core/server   GameRoom (versão, auth, reconexão, flood), createGameServer, loadMap
+│   ├── core-server/   @core/server   GameRoom, contas (GamePush), InterestManager, createGameServer (env, logs, métricas, Redis, origens), loadMap
 │   └── core-client/   @core/client   startClient: telas, i18n (14 idiomas), input, plataforma, rede
 │       └── src/
 │           ├── startClient.ts        Fluxo: carregando → menu → conectando → partida → resultado/erros
@@ -47,11 +47,15 @@ online-game-template/
 ├── tools/
 │   ├── assets/                       Arte provisória, validação de mapas
 │   ├── loadtest/                     Bots (comportamento em game/client/src/bot.ts)
+│   ├── e2e/                          Testes ponta a ponta (Playwright)
+│   ├── release/                      pnpm pack:client (.zip para GamePush/itch.io)
 │   └── template/                     pnpm init-game
+├── infra/docker-compose.yml          Servidor + Redis local
+├── Dockerfile                        Imagem do servidor
 ├── docs/                             Arquitetura, pesquisa, testes, uso do template, ADRs
 ├── CLAUDE.md                         Regras do projeto para agentes de IA
 ├── CHANGELOG.md · TEMPLATE_VERSION   Versões do template
-└── .github/workflows/ci.yml          Lint, typecheck, mapas, testes, build
+└── .github/workflows/                ci.yml (lint, tipos, mapas, testes, build, e2e) e release.yml
 ```
 
 ## 3. Contrato núcleo ↔ jogo
@@ -114,7 +118,10 @@ Queda de conexão: o SDK tenta reconectar sozinho e a tela mostra "Reconectando�
 | HUD do jogo (placar) | Elementos DOM em `ctx.hud`, estilos em `game/client/src/styles.css` |
 | Novo mapa | `content/maps` + `game/client/src/assets.ts` (ver `content/README.md`) |
 | Tema visual da interface | Sobrescrever variáveis `--ui-*` em `game/client/src/styles.css` |
-| Contas reais | Sobrescrever `authenticate()` na sala (ver ADR 0004) |
+| Contas reais | Já funciona com GamePush (`GAMEPUSH_*` no servidor). Exigir conta: `allowGuests = false` na sala. Outro provedor: `registerAccountProvider` (ver ADR 0004) |
+| Anúncio com recompensa | `if (await ctx.platform.ads.showRewarded()) { /* dar recompensa via mensagem ao servidor */ }` |
+| Área de interesse para novas entidades | Coleção com `.view()` no schema + `InterestManager` na sala (ver `ArenaRoom`) |
+| Métricas de um tick | `this.startSimulation(step, TICK_RATE)`; aparecem em `GET /metrics` |
 
 ## 6. Caminho de escalabilidade
 
@@ -125,6 +132,21 @@ Queda de conexão: o SDK tenta reconectar sozinho e a tela mostra "Reconectando�
 | 2 | Muitas partidas simultâneas | Contêineres + orquestração (ex.: Agones), autoscaling |
 | 3 | Mundo persistente / MMO | Zonas (cada zona = uma sala), handoff, AoI com `StateView`, persistência própria, serviços separados |
 
-## 7. Próximos passos (Prioridade 2)
+## 7. Produção
 
-Deploy (Docker, Colyseus Cloud, publicação no itch.io/GamePush), Redis opcional, logs e métricas, segurança extra (origem, tamanho de mensagem, senha no monitor), AoI e entidades não-jogador, GamePush completo (verificação de conta no servidor, leaderboards, anúncios), testes ponta a ponta na CI.
+Deploy, variáveis de ambiente, GamePush, itch.io e release automático: [`DEPLOY.md`](./DEPLOY.md).
+
+Na rede, o servidor tem:
+- validação de versão e de conta em `onAuth`;
+- limite de mensagens por segundo e de tamanho de mensagem;
+- lista de origens permitidas (`ALLOWED_ORIGINS`);
+- área de interesse, para que cada cliente receba só o que está perto.
+
+Observabilidade: `/health`, `/version`, `/metrics` (Prometheus) e logs em JSON.
+
+## 8. Próximos passos sugeridos
+
+- Pipeline de sprites (Aseprite → atlas e animações) e áudio com volume salvo.
+- Interface reutilizável para os jogos (botões, painéis, listas).
+- Persistência própria (Postgres) quando um jogo precisar de dados de mundo.
+- Zonas de MMO: troca de jogador entre salas e mundo contínuo.

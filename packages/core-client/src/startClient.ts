@@ -66,7 +66,11 @@ class ClientApp<State> {
 
     this.ui = new Ui(document.body, this.i18n);
     this.input = new InputManager(this.ui.root, this.game.actions ?? [], this.i18n.t);
-    this.i18n.onChange(() => this.input.refreshLabels());
+    this.i18n.onChange((locale) => {
+      this.input.refreshLabels();
+      this.platform.setLanguage(locale);
+    });
+    this.platform.onPauseChange((paused) => this.onPlatformPause(paused));
     this.playerName = this.storage.get("name") ?? this.platform.getPlayerName() ?? "";
 
     this.ui.show(() => loadingScreen(this.i18n, 0));
@@ -140,6 +144,13 @@ class ClientApp<State> {
     );
   }
 
+  /** Platform pause (e.g. an ad is playing): mute and release input; the match itself keeps running. */
+  private onPlatformPause(paused: boolean) {
+    this.phaser.sound.mute = paused;
+    if (paused) this.input.setActive(false);
+    else if (this.room && !this.ui.isScreenOpen) this.input.setActive(true);
+  }
+
   private resume() {
     this.ui.hide();
     this.input.setActive(true);
@@ -159,7 +170,7 @@ class ClientApp<State> {
         roomName: this.game.roomName,
         gameProtocolVersion: this.game.protocolVersion,
         rootSchema: this.game.rootSchema,
-        options: { ...this.game.joinOptions?.(), name, locale: this.i18n.locale },
+        options: { ...this.game.joinOptions?.(), name, locale: this.i18n.locale, auth: this.platform.getAuthPayload() },
       });
     } catch (err) {
       console.error(err);
@@ -229,6 +240,9 @@ class ClientApp<State> {
       endMatch: (result) => this.endMatch(result),
       exitToMenu: () => this.exitToMenu(),
     };
+
+    // Dev-only hook for end-to-end tests and console debugging (stripped from production builds).
+    if (import.meta.env.DEV) (window as unknown as { __game?: unknown }).__game = { room, locale: this.i18n.locale };
 
     this.ui.hide();
     this.input.setActive(true);

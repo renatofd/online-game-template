@@ -1,8 +1,11 @@
+import type { Client, CloseCode, StepContext } from "@colyseus/core";
 import type { GameMap } from "@core/maps";
-import { GameRoom, loadMap } from "@core/server";
+import { GameRoom, InterestManager, loadMap } from "@core/server";
 import {
   type ArenaJoinOptions,
   ArenaState,
+  INTEREST_EVERY_TICKS,
+  INTEREST_RADIUS,
   MAX_PLAYERS_PER_ROOM,
   MoveInput,
   Player,
@@ -11,7 +14,6 @@ import {
   TICK_RATE,
   TILE_SIZE,
 } from "@game/shared";
-import type { Client, CloseCode, StepContext } from "colyseus";
 
 export interface ArenaCreateOptions {
   mapId?: string;
@@ -41,6 +43,9 @@ export class ArenaRoom extends GameRoom<{ state: ArenaState; input: MoveInput }>
 
   private map!: GameMap;
   private spawnCursor = 0;
+  private tick = 0;
+  /** Area of interest: each client only receives nearby players. */
+  private interest = new InterestManager<Player>({ radius: INTEREST_RADIUS });
 
   override messages = {
     // Movement arrives through the input buffer above. Register handlers here
@@ -51,7 +56,7 @@ export class ArenaRoom extends GameRoom<{ state: ArenaState; input: MoveInput }>
     const mapId = options.mapId ?? "arena";
     this.map = loadMap(mapId, { tileSize: TILE_SIZE });
     this.state.mapId = mapId;
-    this.setFixedTimestep((ctx) => this.step(ctx), TICK_RATE);
+    this.startSimulation((ctx) => this.step(ctx), TICK_RATE);
   }
 
   override onJoin(client: Client, _options: ArenaJoinOptions) {
@@ -63,9 +68,12 @@ export class ArenaRoom extends GameRoom<{ state: ArenaState; input: MoveInput }>
       client.sessionId,
       new Player({ name: this.identity(client).name, x: spawn.x, y: spawn.y, vx: 0, vy: 0 }),
     );
+    this.interest.addViewer(client);
+    this.updateInterest();
   }
 
   override onLeave(client: Client, _code: CloseCode) {
+    this.interest.removeViewer(client);
     this.state.players.delete(client.sessionId);
   }
 
@@ -79,5 +87,11 @@ export class ArenaRoom extends GameRoom<{ state: ArenaState; input: MoveInput }>
       if (!channel) continue;
       for (const input of channel) stepPlayer(player, input, ctx.dt, this.map.collision);
     }
+    if (++this.tick % INTEREST_EVERY_TICKS === 0) this.updateInterest();
+  }
+
+  private updateInterest() {
+    // Each viewer sees players within INTEREST_RADIUS of its own player, and always itself.
+    this.interest.update(this.state.players.entries(), (sessionId) => this.state.players.get(sessionId));
   }
 }

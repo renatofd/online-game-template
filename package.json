@@ -20,7 +20,11 @@
     "maps:validate": "pnpm --filter @tools/assets validate-maps",
     "assets:placeholder": "pnpm --filter @tools/assets placeholder-art",
     "loadtest": "pnpm --filter @tools/loadtest start",
-    "init-game": "pnpm --filter @tools/template init-game"
+    "init-game": "pnpm --filter @tools/template init-game",
+    "build:client": "pnpm --filter @app/client build",
+    "build:server": "pnpm --filter @app/server build",
+    "pack:client": "pnpm --filter @tools/release pack-client",
+    "e2e": "pnpm --filter @tools/e2e test"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
@@ -33,5 +37,5 @@
       "msgpackr-extract"
     ]
   },
-  "version": "0.2.0"
+  "version": "0.3.0"
 }

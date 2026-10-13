@@ -1,6 +1,6 @@
 # 0004: Contas de jogador via GamePush
 
-**Status:** aceita (implementação na Prioridade 2)
+**Status:** aceita e implementada (v0.3.0): `GamePushPlatform.getAuthPayload()` no cliente e `GamePushAccountProvider` no servidor
 
 ## Contexto
 Os jogos são distribuídos pelo GamePush, que já tem contas de jogador, login pelas plataformas, dados salvos, leaderboards e pagamentos. O servidor de jogo (Colyseus) precisa saber **quem** é o jogador de forma confiável.

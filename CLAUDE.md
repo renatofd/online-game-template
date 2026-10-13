@@ -21,6 +21,19 @@ Template for online web games (.io now, MMO-ready later): Phaser 4 client, Colys
 - Bump `PROTOCOL_VERSION` in `game/shared/src/constants.ts` whenever schemas, inputs or messages change; bump `CORE_PROTOCOL_VERSION` for core wire changes. Mismatched clients are told to reload.
 - Never trust join options or messages: sanitize (`sanitizeName`, clamps) on the server.
 
+## Server building blocks (@core/server)
+
+- Rooms extend `GameRoom`; run the simulation with `this.startSimulation(step, TICK_RATE)` (records tick time in /metrics).
+- Identity: `this.identity(client)` → `{ id, name, provider, verified }`. Accounts are verified by registered `AccountProvider`s (GamePush auto-registers from env). Set `allowGuests = false` to require accounts.
+- Area of interest: tag collections with `.view()` in the schema and use `InterestManager` (addViewer/removeViewer/update). Entities outside the radius are not sent.
+- Config comes from validated env (`env`, see docs/DEPLOY.md). Log with `log.info/warn/error`, never `console.log` in server code.
+- Import Colyseus server APIs from `@colyseus/core` (not the `colyseus` meta package).
+
+## Platform (@core/client)
+
+- Games use `ctx.platform` for ads (`ads.showRewarded()` resolves true only if rewarded), `openLeaderboard?.()`, etc. Never call `window.gp` directly.
+- Secrets never go to the client. `VITE_*` values are public by definition.
+
 ## UI and i18n
 
 - Menus/HUD are DOM (`@core/client` ui), not Phaser text: needed for RTL Arabic, Devanagari, CJK and IME.
@@ -38,6 +51,8 @@ Tiled `.tmj`, orthogonal, 16x16, embedded tilesets, CSV layers, object layer `ob
 - `pnpm check` — lint (Biome) + typecheck + tests (Vitest) + map validation. Run before pushing; CI runs the same plus `pnpm build`.
 - `pnpm lint:fix` — auto-format.
 - `pnpm loadtest` — 20 bots (behaviour in `game/client/src/bot.ts`).
+- `pnpm e2e` — Playwright end-to-end tests (starts server + client). `PW_CHROMIUM_PATH` to reuse a local Chromium.
+- `pnpm build:client && pnpm pack:client` — client zip for GamePush/itch.io. `docker build .` — server image.
 
 ## Conventions
 

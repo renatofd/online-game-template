@@ -66,6 +66,26 @@ describe("ArenaRoom", () => {
     expect(player.x).toBeCloseTo(startX + PLAYER_SPEED * TICK_DT);
   });
 
+  it("only sends players inside the area of interest", async () => {
+    const room = await colyseus.createRoom<ArenaState>(ROOM_ARENA, {});
+    // The first two spawns of the arena map are ~590 px apart: beyond INTEREST_RADIUS.
+    const a = await colyseus.connectTo(room, { v, name: "A" });
+    const b = await colyseus.connectTo(room, { v, name: "B" });
+    await room.waitForNextPatch();
+    await vi.waitFor(() => expect(a.state.players.has(a.sessionId)).toBe(true));
+    expect(a.state.players.has(b.sessionId)).toBe(false);
+    expect(b.state.players.has(a.sessionId)).toBe(false);
+
+    // Move B next to A (server-side teleport, as a game rule would).
+    const pa = room.state.players.get(a.sessionId);
+    const pb = room.state.players.get(b.sessionId);
+    if (!pa || !pb) throw new Error("players missing");
+    pb.x = pa.x + 32;
+    pb.y = pa.y;
+    await vi.waitFor(() => expect(a.state.players.has(b.sessionId)).toBe(true), { timeout: 2000 });
+    expect(b.state.players.get(a.sessionId)?.name).toBe("A");
+  });
+
   it("removes the player on leave", async () => {
     const room = await colyseus.createRoom<ArenaState>(ROOM_ARENA, {});
     await colyseus.connectTo(room, { v });

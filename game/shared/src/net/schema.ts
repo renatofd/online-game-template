@@ -25,6 +25,7 @@ export type Player = SchemaType<typeof Player>;
 export const ArenaState = schema({
   /** Map identifier; the client loads the matching .tmj. */
   mapId: t.string(),
-  players: t.map(Player),
+  /** `.view()`: each client only receives the players in its area of interest. */
+  players: t.map(Player).view(),
 });
 export type ArenaState = SchemaType<typeof ArenaState>;

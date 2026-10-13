@@ -1,5 +1,5 @@
+import { defineRoom } from "@colyseus/core";
 import { ROOM_ARENA } from "@game/shared";
-import { defineRoom } from "colyseus";
 import { ArenaRoom } from "./rooms/ArenaRoom";
 
 export { ArenaRoom } from "./rooms/ArenaRoom";

@@ -6,7 +6,7 @@ Base para jogos online web: começa como um jogo estilo `.io` e foi organizada p
 
 > **Este repositório é um template.** Cada jogo novo é criado a partir dele e continua recebendo atualizações. Veja [`docs/TEMPLATE.md`](docs/TEMPLATE.md).
 >
-> Já vem pronto: servidor autoritativo com predição no cliente, reconexão e checagem de versão; menus, telas de erro e resultado; 14 idiomas (com árabe RTL); teclado, controle e joystick de toque; mapas do Tiled; CI. O jogo de exemplo ("Arena Demo") só anda pelo mapa.
+> Já vem pronto: servidor autoritativo com predição no cliente, reconexão, checagem de versão e área de interesse; GamePush (contas verificadas no servidor, anúncios, leaderboard); menus, telas de erro e resultado; 14 idiomas (com árabe RTL); teclado, controle e joystick de toque; mapas do Tiled; Docker, métricas e CI com testes ponta a ponta. O jogo de exemplo ("Arena Demo") só anda pelo mapa.
 
 | Celular (joystick, japonês) | Menu em árabe (RTL) |
 |---|---|
@@ -44,6 +44,8 @@ Abra http://localhost:3000 em **duas ou mais abas** para ver os jogadores sincro
 | `pnpm maps:validate` | Confere se os mapas seguem as convenções do projeto |
 | `pnpm check` | Tudo acima de uma vez (o mesmo que a CI roda) |
 | `pnpm build` | Build de produção do cliente (`apps/client/dist`) e do servidor (`apps/server/build`) |
+| `pnpm pack:client` | Gera o `.zip` do cliente para GamePush/itch.io (depois do build) |
+| `pnpm e2e` | Testes ponta a ponta com navegadores reais (Playwright) |
 | `pnpm loadtest` | Bots para teste de carga |
 | `pnpm assets:placeholder` | Regera a arte e o mapa provisórios (sobrescreve!) |
 | `pnpm init-game --name "Meu Jogo"` | Renomeia o projeto ao criar um jogo novo |
@@ -63,18 +65,18 @@ Detalhes em [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Como criar mapas: [`
 
 ## Configuração
 
-| Variável | Onde | Padrão | Uso |
-|---|---|---|---|
-| `VITE_SERVER_URL` | cliente | `ws://<host da página>:2567` | URL do servidor de jogo em produção |
-| `VITE_PLATFORM` | cliente | `web` | `web` ou `gamepush` |
-| `VITE_BUILD_ID` | cliente | `dev` | Identificador do build mostrado no menu |
-| `BUILD_ID` | servidor | `dev` | Identificador do build em `GET /version` |
-| `PORT` | servidor | `2567` | Porta do servidor |
-| `MAPS_DIR` | servidor | `<repo>/content/maps` | Pasta dos mapas `.tmj` |
+Todas as variáveis de cliente e servidor (GamePush, origens permitidas, Redis, monitor...) estão em [`docs/DEPLOY.md`](docs/DEPLOY.md). Para desenvolver com o GamePush, crie `apps/client/.env.local` (não vai para o git):
+
+```bash
+VITE_PLATFORM=gamepush
+VITE_GAMEPUSH_PROJECT_ID=<id do projeto>
+VITE_GAMEPUSH_PUBLIC_TOKEN=<token público>
+```
 
 ## Documentação
 
 - [`docs/TEMPLATE.md`](docs/TEMPLATE.md): criar um jogo novo e receber atualizações do template
+- [`docs/DEPLOY.md`](docs/DEPLOY.md): publicar servidor e cliente, variáveis de ambiente, GamePush, itch.io, release
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): princípios, estrutura, contrato núcleo ↔ jogo, escalabilidade
 - [`docs/RESEARCH.md`](docs/RESEARCH.md): pesquisa sobre jogos online web, GamePush, hospedagem e decisões
 - [`docs/TESTING.md`](docs/TESTING.md): estratégia de testes do multiplayer (sem precisar de vários jogadores)

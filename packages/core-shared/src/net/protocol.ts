@@ -5,12 +5,27 @@
  * (join options, error codes, core messages). Games bump their own
  * `PROTOCOL_VERSION` when their schemas or messages change.
  */
-export const CORE_PROTOCOL_VERSION = 1;
+export const CORE_PROTOCOL_VERSION = 2;
 
 /** Protocol versions a client must send when joining. Both must match the server. */
 export interface ProtocolVersions {
   core: number;
   game: number;
+}
+
+/**
+ * Proof of the player's platform identity, verified by the server
+ * (e.g. GamePush: base64 of `gp.player._authInfo`). Absent for guests.
+ */
+export interface PlatformAuthPayload {
+  /** Account provider id, e.g. "gamepush". */
+  provider: string;
+  /** Opaque provider data (verified server-side, never trusted as-is). */
+  data: string;
+  /** Platform type the player is on (GamePush: gp.platform.type). */
+  platform?: string;
+  /** Platform key (GamePush: gp.platform.tag). */
+  platformKey?: string;
 }
 
 /** Join options every core room understands. Games extend this with their own fields. */
@@ -21,6 +36,8 @@ export interface CoreJoinOptions {
   name?: string;
   /** Client UI locale, e.g. "pt" (informational; servers may use it for chat filters, etc.). */
   locale?: string;
+  /** Platform identity to verify. Without it the player joins as a guest. */
+  auth?: PlatformAuthPayload;
 }
 
 /**

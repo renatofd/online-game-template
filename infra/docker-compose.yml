@@ -1,0 +1,23 @@
+# Local production-like stack: game server + Redis.
+#   docker compose -f infra/docker-compose.yml up --build
+# Scale out (rooms shared through Redis; put a load balancer in front for real traffic):
+#   docker compose -f infra/docker-compose.yml up --build --scale server=2
+services:
+  server:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      REDIS_URL: redis://redis:6379
+      # ALLOWED_ORIGINS: http://localhost:3000
+      # MONITOR_PASSWORD: change-me
+      # GAMEPUSH_PROJECT_ID: ""
+      # GAMEPUSH_API_SECRET: ""
+    ports:
+      - "2567"
+    depends_on:
+      - redis
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"

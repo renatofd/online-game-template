@@ -1,8 +1,17 @@
-import type { Platform } from "./Platform";
+import type { PlatformAuthPayload } from "@core/shared";
+import type { Platform, PlatformAds } from "./Platform";
 
-/** Plain web (itch.io, own site, local dev). `?name=` in the URL pre-fills the name. */
+const NO_ADS: PlatformAds = {
+  canShowInterstitial: () => false,
+  showInterstitial: async () => false,
+  canShowRewarded: () => false,
+  showRewarded: async () => false,
+};
+
+/** Plain web (itch.io, own site, local dev). `?name=` and `?lang=` in the URL act as hints. */
 export class WebPlatform implements Platform {
-  readonly id = "web";
+  readonly id: string = "web";
+  readonly ads: PlatformAds = NO_ADS;
 
   async init(): Promise<void> {}
 
@@ -14,6 +23,13 @@ export class WebPlatform implements Platform {
     return new URLSearchParams(location.search).get("lang") ?? undefined;
   }
 
+  setLanguage(_locale: string) {}
+
+  getAuthPayload(): PlatformAuthPayload | undefined {
+    return undefined;
+  }
+
   gameplayStart() {}
   gameplayStop() {}
+  onPauseChange(_listener: (paused: boolean) => void) {}
 }
