@@ -1,159 +1,152 @@
-# Arquitetura e Estrutura de Pastas (proposta)
+# Arquitetura
 
-> Status: **proposta** — aguardando aprovação antes do scaffolding do código.
-> Para o raciocínio por trás de cada escolha, veja [`RESEARCH.md`](./RESEARCH.md).
+> O raciocínio por trás das escolhas está em [`RESEARCH.md`](./RESEARCH.md), e as decisões em [`adr/`](./adr/). Para criar jogos a partir daqui, veja [`TEMPLATE.md`](./TEMPLATE.md).
+
+![Cliente com 20 bots e um jogador](./images/screenshot.png)
 
 ## 1. Princípios
 
-1. **Servidor autoritativo.** O cliente envia *intenções* (inputs); o servidor decide o resultado. Nunca confiar no cliente.
-2. **Simulação compartilhada e independente de engine.** A lógica de jogo (movimento, colisão, regras) vive em um pacote TypeScript puro, sem Phaser, que roda no servidor **e** no cliente (para client-side prediction). O Phaser é só a camada de apresentação.
-3. **Transporte abstraído.** O jogo fala com uma interface `Transport`, não com WebSocket diretamente. Isso permite trocar por WebTransport (UDP/QUIC) no futuro sem tocar na lógica.
-4. **Protocolo binário e versionado** desde o início (com fallback de debug em JSON).
-5. **Mapas Tiled como fonte única de verdade** para cliente e servidor (o servidor lê o mesmo `.tmj` para colisões e spawns).
-6. **Escalar por etapas:** um processo → várias salas/processos → frota orquestrada → mundo em zonas (MMO). Cada etapa não deve exigir reescrever as anteriores.
-7. **Monorepo** com fronteiras claras entre pacotes; dependências apontam sempre para dentro (`client`/`server` → `shared`; nunca o contrário).
+1. **Núcleo separado do jogo.** O template mantém `packages/core-*`; cada jogo edita só `game/*` e `content/`. Assim os jogos recebem melhorias do template sem conflitos.
+2. **Servidor autoritativo.** O cliente envia só *intenções* (inputs); o servidor decide o resultado. Nunca confiar no cliente.
+3. **Simulação compartilhada e determinística.** As regras (ex.: `stepPlayer`) ficam em `game/shared`, em TypeScript puro, e rodam iguais no servidor e na predição do cliente.
+4. **Contrato de rede versionado.** Cliente e servidor trocam `CORE_PROTOCOL_VERSION` e `PROTOCOL_VERSION`; se forem diferentes, o jogador vê "Nova versão disponível" e recarrega.
+5. **Mapas Tiled como fonte única.** O cliente desenha e o servidor colide usando o mesmo `.tmj` de `content/maps`.
+6. **Interface em DOM, jogo no canvas.** Menus e HUD são HTML/CSS sobre o Phaser: suportam todas as escritas, inclusive RTL, e ficam nítidos em qualquer zoom.
+7. **Dispositivos e plataformas isolados.** O jogo lê `InputManager` (teclado, controle e toque) e `Platform` (GamePush ou web), nunca APIs específicas.
+8. **Dependências apontam para dentro:** `apps` → `game` → `core`. O núcleo nunca importa o jogo.
 
 ## 2. Estrutura de pastas
 
 ```text
 online-game-template/
-├── apps/
-│   ├── client/                    # Cliente web (Vite + Phaser 4 + TS)
-│   │   ├── index.html
-│   │   ├── public/                # Assets *gerados* servidos estaticamente (não editar à mão)
-│   │   │   └── assets/
-│   │   │       ├── atlases/       # Atlases empacotados (PNG + JSON/PCT)
-│   │   │       ├── maps/          # .tmj exportados + tilesets extrudados
-│   │   │       ├── audio/
-│   │   │       └── fonts/         # Bitmap fonts (pixel)
-│   │   ├── src/
-│   │   │   ├── main.ts            # Bootstrap: cria Phaser.Game com config
-│   │   │   ├── config/            # Game config, resolução interna, constantes de render
-│   │   │   ├── scenes/            # Boot, Preload, MainMenu, Game, UI (HUD em cena separada)
-│   │   │   ├── net/               # Conexão, client-side prediction, reconciliação, interpolação
-│   │   │   ├── render/            # Views: mapeia entidades da simulação → GameObjects Phaser
-│   │   │   ├── input/             # Teclado/mouse/touch/gamepad → InputCommand
-│   │   │   ├── ui/                # HUD, menus (Phaser ou DOM overlay)
-│   │   │   ├── audio/
-│   │   │   └── utils/
-│   │   ├── tests/
-│   │   ├── vite.config.ts
-│   │   └── tsconfig.json
-│   │
-│   └── server/                    # Servidor de jogo (Node.js + TS)
-│       ├── src/
-│       │   ├── main.ts            # Bootstrap HTTP/WS, healthcheck, métricas
-│       │   ├── config/            # Leitura de env (validada), tick rate, limites
-│       │   ├── transport/         # Implementações de Transport (ws, futuramente WebTransport)
-│       │   ├── rooms/             # Salas/instâncias (uma partida .io = uma sala; no MMO = uma zona)
-│       │   ├── world/             # Loop de tick fixo, carregamento de mapa, spawns
-│       │   ├── interest/          # Area of Interest (grid espacial) → o que cada cliente recebe
-│       │   ├── sessions/          # Conexão ↔ jogador, reconexão, autenticação (futuro)
-│       │   ├── matchmaking/       # Escolha de sala/região (simples no início)
-│       │   ├── persistence/       # Adaptadores de banco (futuro: Postgres/Redis)
-│       │   └── observability/     # Logs estruturados, métricas (tick time, CCU, bytes/s)
-│       ├── tests/
-│       ├── Dockerfile
-│       └── tsconfig.json
+├── packages/                         NÚCLEO (template). Não editar nos jogos.
+│   ├── core-shared/   @core/shared   Colisão, SpatialHash, versões e códigos de erro, sanitizeName
+│   ├── core-maps/     @core/maps     Leitura e validação de mapas Tiled (sem Phaser)
+│   ├── core-server/   @core/server   GameRoom, contas (GamePush), InterestManager, createGameServer (env, logs, métricas, Redis, origens), loadMap
+│   └── core-client/   @core/client   startClient: telas, i18n (14 idiomas), input, plataforma, rede
+│       └── src/
+│           ├── startClient.ts        Fluxo: carregando → menu → conectando → partida → resultado/erros
+│           ├── GameModule.ts         Contrato entre núcleo e jogo (GameModule, GameContext)
+│           ├── i18n/                 Idiomas, mensagens do núcleo, plurais, RTL
+│           ├── input/                Teclado, gamepad, joystick e botões de toque
+│           ├── ui/                   Telas DOM + CSS (variáveis --ui-* para tema)
+│           ├── platform/             Platform, WebPlatform, GamePushPlatform
+│           ├── net/session.ts        Entrada na sala, versões, erros, espera do 1º estado
+│           └── scenes/BootScene.ts   Carregamento dos assets do jogo
 │
-├── packages/
-│   ├── shared/                    # Simulação e regras de jogo — SEM Phaser, SEM Node APIs
-│   │   └── src/
-│   │       ├── constants/         # Tick rate, tamanhos, velocidades
-│   │       ├── math/              # Vetores, RNG determinístico (seeded)
-│   │       ├── ecs/               # Componentes e sistemas (ou bitECS) da simulação
-│   │       ├── physics/           # Colisão simples (círculo/AABB vs grid de tiles)
-│   │       ├── simulation/        # step(state, inputs, dt) — usado por servidor e predição
-│   │       └── types/
-│   │
-│   ├── protocol/                  # Contrato de rede cliente ↔ servidor
-│   │   └── src/
-│   │       ├── messages.ts        # Tipos/IDs de mensagens (versão do protocolo)
-│   │       ├── codec/             # Serialização binária (DataView/bit-packing, quantização)
-│   │       └── snapshot/          # Snapshots e delta compression
-│   │
-│   ├── maps/                      # Leitura de mapas Tiled (.tmj) SEM Phaser
-│   │   └── src/                   # Parser tipado: layers de colisão, objetos (spawns, zonas), props
-│   │
-│   └── config/                    # Configs compartilhadas de tooling
-│       ├── tsconfig.base.json
-│       └── eslint/ (ou biome.json na raiz)
+├── game/                             JOGO. Edite à vontade nos repositórios derivados.
+│   ├── shared/        @game/shared   PROTOCOL_VERSION, constantes, schemas, stepPlayer
+│   ├── server/        @game/server   Salas (ArenaRoom) + testes
+│   └── client/        @game/client   GameModule, cenas, render, assets, textos, bots
 │
-├── content/                       # FONTES editáveis de conteúdo (não servidas direto)
-│   ├── maps/                      # Projeto Tiled (.tiled-project), mapas .tmx/.tmj, templates .tx
-│   ├── tilesets/                  # Tilesets fonte (.tsx + PNG sem extrusão)
-│   ├── sprites/                   # Arquivos Aseprite (.aseprite) por personagem/objeto
-│   ├── audio/                     # Áudio fonte (wav)
-│   └── README.md                  # Convenções: tamanho de tile, paleta, nomes, propriedades Tiled
+├── apps/                             Entradas finas (template)
+│   ├── client/                       index.html + main.ts → startClient(game)
+│   └── server/                       app.config.ts → createGameServer(rooms)
 │
-├── tools/                         # Pipeline de assets e scripts
-│   ├── build-assets/              # Aseprite → atlas; extrusão de tilesets; cópia → apps/client/public
-│   ├── validate-maps/             # Valida .tmj: layers obrigatórias, propriedades, tileset embutido
-│   └── loadtest/                  # Bots headless para teste de carga do servidor
-│
-├── infra/                         # Deploy
-│   ├── docker/                    # docker-compose para dev (server + redis + postgres)
-│   └── k8s/                       # (futuro) manifests / Agones Fleet
-│
-├── docs/
-│   ├── ARCHITECTURE.md            # Este documento
-│   ├── RESEARCH.md                # Pesquisa e recomendações
-│   ├── adr/                       # Architecture Decision Records (uma decisão por arquivo)
-│   ├── networking.md              # (futuro) detalhes do protocolo e do netcode
-│   └── content-pipeline.md        # (futuro) como criar mapas/sprites e exportar
-│
-├── .github/workflows/             # CI: lint, typecheck, testes, build
-├── package.json                   # Scripts raiz (dev, build, test, lint)
-├── pnpm-workspace.yaml
-├── tsconfig.json                  # Project references
-└── README.md
+├── content/                          Mapas (.tmj), tilesets, sprites (do jogo)
+├── tools/
+│   ├── assets/                       Arte provisória, validação de mapas
+│   ├── loadtest/                     Bots (comportamento em game/client/src/bot.ts)
+│   ├── e2e/                          Testes ponta a ponta (Playwright)
+│   ├── release/                      pnpm pack:client (.zip para GamePush/itch.io)
+│   └── template/                     pnpm init-game
+├── infra/docker-compose.yml          Servidor + Redis local
+├── Dockerfile                        Imagem do servidor
+├── docs/                             Arquitetura, pesquisa, testes, uso do template, ADRs
+├── CLAUDE.md                         Regras do projeto para agentes de IA
+├── CHANGELOG.md · TEMPLATE_VERSION   Versões do template
+└── .github/workflows/                ci.yml (lint, tipos, mapas, testes, build, e2e) e release.yml
 ```
 
-### Por que essa divisão
+## 3. Contrato núcleo ↔ jogo
 
-| Pasta | Responsabilidade | Pode depender de |
-|---|---|---|
-| `packages/shared` | Regras e simulação determinística | nada (só TS puro) |
-| `packages/protocol` | Formato das mensagens na rede | `shared` |
-| `packages/maps` | Ler Tiled sem Phaser (servidor precisa de colisão) | `shared` |
-| `apps/server` | Autoridade, tick loop, AoI, salas | `shared`, `protocol`, `maps` |
-| `apps/client` | Render, input, predição/interpolação, UI | `shared`, `protocol`, Phaser |
-| `content/` | Arquivos fonte editados por artistas/level designers | — |
-| `tools/` | Transforma `content/` em assets otimizados | — |
+O jogo exporta um `GameModule` (`game/client/src/index.ts`) e salas que estendem `GameRoom` (`game/server`).
 
-**Regra de ouro:** `packages/*` nunca importa Phaser nem APIs de Node/DOM. Isso garante que a simulação rode igual nos dois lados e em testes.
+```ts
+// cliente
+export const game: GameModule<ArenaState> = {
+  title, id, protocolVersion, roomName, rootSchema,
+  resolution, orientation, preload, scenes, gameSceneKey,
+  actions,   // ações extras: teclas, botão de gamepad e botão de toque
+  messages,  // textos do jogo nos 14 idiomas
+};
 
-## 3. Fluxo de dados em runtime
+// a cena do jogo recebe o contexto em init(ctx: GameContext)
+ctx.room       // sala Colyseus já conectada, com o primeiro estado recebido
+ctx.input      // move {x,y} e isDown("acao")
+ctx.t          // tradução
+ctx.hud        // elemento DOM para widgets de HUD do jogo
+ctx.endMatch({ title, rows })   // tela de resultado
+ctx.exitToMenu()
+```
+
+```ts
+// servidor
+class MinhaSala extends GameRoom<{ state: MeuEstado; input: MeuInput }> {
+  protected readonly protocolVersion = PROTOCOL_VERSION;
+  // onCreate / onJoin / onLeave / simulação; this.identity(client).name já vem sanitizado
+}
+```
+
+## 4. Fluxo de dados em runtime
 
 ```text
-Cliente                                         Servidor (tick fixo, ex. 20–30 Hz)
-───────                                         ──────────────────────────────────
-input/ → InputCommand{seq, dx, dy, ações}  ──►  fila de inputs por jogador
-net/ aplica o input localmente (predição)       world/ step(state, inputs)  ← packages/shared
-                                                interest/ filtra entidades próximas a cada jogador
-net/ recebe Snapshot (delta, binário)     ◄──   protocol/ codifica delta vs último ack
-  ├─ entidade própria: reconcilia (reaplica inputs não confirmados)
-  └─ outras entidades: buffer + interpolação (~100 ms no passado)
-render/ atualiza GameObjects Phaser a cada frame (60+ fps, desacoplado do tick)
+Cliente (60+ fps)                                   Servidor (tick fixo de 30 Hz)
+─────────────────                                   ─────────────────────────────
+InputManager (teclado+gamepad+toque) → move {x,y}
+GameScene: 1 input por tick (predict.tick)     ──► buffer de inputs por jogador (defineInput)
+  reconciler aplica stepPlayer na hora                sanitize corta valores fora do intervalo
+                                                       setFixedTimestep → stepPlayer(...)
+Estado (binário, delta) ◄────────────────────────── ArenaState { mapId, players }
+  próprio jogador: rollback + replay se divergir
+  outros: interpolação
 ```
 
-## 4. Caminho de escalabilidade
+Entrada na sala: o cliente envia `{ v: {core, game}, name, locale }`. O `GameRoom.onAuth` valida as versões, depois `authenticate()` define a identidade (convidado por padrão; GamePush no futuro). O cliente só começa a partida depois que o primeiro estado completo chega.
+
+Queda de conexão: o SDK tenta reconectar sozinho e a tela mostra "Reconectando…". O servidor guarda a vaga por 20 s. Se não voltar, aparece "Você foi desconectado".
+
+## 5. Como estender (num jogo)
+
+| Quero... | Onde mexer |
+|---|---|
+| Nova regra de jogo (dash, dano) | `game/shared` (pura, com testes) + aplicar em `ArenaRoom.step` |
+| Novo campo sincronizado | `game/shared/src/net/schema.ts` + aumentar `PROTOCOL_VERSION` |
+| Nova ação (botão) | `actions` no GameModule + `ctx.input.isDown("id")` + campo no input schema |
+| Texto novo | `game/client/src/messages.ts` (14 idiomas; o teste acusa os que faltam) |
+| Fim de partida | `ctx.endMatch({ title, rows })` na cena |
+| HUD do jogo (placar) | Elementos DOM em `ctx.hud`, estilos em `game/client/src/styles.css` |
+| Novo mapa | `content/maps` + `game/client/src/assets.ts` (ver `content/README.md`) |
+| Tema visual da interface | Sobrescrever variáveis `--ui-*` em `game/client/src/styles.css` |
+| Contas reais | Já funciona com GamePush (`GAMEPUSH_*` no servidor). Exigir conta: `allowGuests = false` na sala. Outro provedor: `registerAccountProvider` (ver ADR 0004) |
+| Anúncio com recompensa | `if (await ctx.platform.ads.showRewarded()) { /* dar recompensa via mensagem ao servidor */ }` |
+| Área de interesse para novas entidades | Coleção com `.view()` no schema + `InterestManager` na sala (ver `ArenaRoom`) |
+| Métricas de um tick | `this.startSimulation(step, TICK_RATE)`; aparecem em `GET /metrics` |
+
+## 6. Caminho de escalabilidade
 
 | Etapa | Cenário | O que muda |
 |---|---|---|
-| 0 | Protótipo `.io` | 1 processo Node, 1+ salas em memória |
-| 1 | `.io` em produção | N processos/máquinas, Redis para presença/matchmaking, várias regiões |
-| 2 | Muitas partidas simultâneas | Contêineres + orquestração (ex.: Agones em Kubernetes), autoscaling de frota |
-| 3 | Mundo persistente / MMO | Mundo dividido em zonas (cada zona = uma "sala"), handoff de jogadores entre zonas, AoI agressivo, persistência em Postgres, serviços separados (auth, chat, inventário) |
+| 0 | Protótipo `.io` | 1 processo Node, várias salas em memória (**hoje**) |
+| 1 | `.io` em produção | N processos com Redis (`@colyseus/redis-presence` + `redis-driver`), várias regiões |
+| 2 | Muitas partidas simultâneas | Contêineres + orquestração (ex.: Agones), autoscaling |
+| 3 | Mundo persistente / MMO | Zonas (cada zona = uma sala), handoff, AoI com `StateView`, persistência própria, serviços separados |
 
-O que torna isso possível desde já: simulação isolada em `shared`, AoI desde o dia 1, `Transport` abstrato, e o conceito de "sala" sendo genérico o bastante para representar tanto uma partida quanto uma zona.
+## 7. Produção
 
-## 5. Próximos passos (após aprovação)
+Deploy, variáveis de ambiente, GamePush, itch.io e release automático: [`DEPLOY.md`](./DEPLOY.md).
 
-1. Scaffolding do monorepo (pnpm workspaces, TS strict, project references, lint/format, Vitest).
-2. Cliente mínimo: Phaser 4 + Vite, config pixel-perfect, cena carregando um mapa Tiled de exemplo.
-3. Servidor mínimo: tick loop fixo, WebSocket, sala única, eco de posição.
-4. `shared` + `protocol`: movimento compartilhado, predição + interpolação, codec binário simples.
-5. CI no GitHub Actions.
+Na rede, o servidor tem:
+- validação de versão e de conta em `onAuth`;
+- limite de mensagens por segundo e de tamanho de mensagem;
+- lista de origens permitidas (`ALLOWED_ORIGINS`);
+- área de interesse, para que cada cliente receba só o que está perto.
 
-Decisões em aberto estão listadas em [`RESEARCH.md` §10](./RESEARCH.md#10-decisões-em-aberto-para-você).
+Observabilidade: `/health`, `/version`, `/metrics` (Prometheus) e logs em JSON.
+
+## 8. Próximos passos sugeridos
+
+- Pipeline de sprites (Aseprite → atlas e animações) e áudio com volume salvo.
+- Interface reutilizável para os jogos (botões, painéis, listas).
+- Persistência própria (Postgres) quando um jogo precisar de dados de mundo.
+- Zonas de MMO: troca de jogador entre salas e mundo contínuo.

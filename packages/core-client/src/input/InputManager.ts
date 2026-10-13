@@ -1,0 +1,91 @@
+import type { Translate } from "../i18n";
+import { GamepadSource } from "./GamepadSource";
+import { KeyboardSource } from "./KeyboardSource";
+import { TouchControls } from "./TouchControls";
+import type { ActionBinding, Vec2 } from "./types";
+
+/** True on phones/tablets (coarse primary pointer or any touch points). */
+export function isTouchDevice(): boolean {
+  return window.matchMedia?.("(pointer: coarse)").matches || navigator.maxTouchPoints > 0;
+}
+
+/**
+ * Unified input: keyboard + gamepad + touch, merged into one movement vector and
+ * a set of named actions. Games read this instead of any specific device.
+ *
+ *   const { x, y } = ctx.input.move;   // -1..1 each, length <= 1
+ *   if (ctx.input.isDown("dash")) ...
+ */
+export class InputManager {
+  private keyboard: KeyboardSource;
+  private gamepad = new GamepadSource();
+  private touch: TouchControls;
+  private actions: Map<string, ActionBinding>;
+  private current: Vec2 = { x: 0, y: 0 };
+  private active = false;
+  /** Whether touch controls are shown while playing. Switches on at the first touch. */
+  private touchMode = isTouchDevice();
+
+  constructor(uiRoot: HTMLElement, actions: ActionBinding[], t: Translate) {
+    this.actions = new Map(actions.map((a) => [a.id, a]));
+    this.keyboard = new KeyboardSource(actions);
+    this.touch = new TouchControls(uiRoot, actions, t);
+    window.addEventListener("touchstart", this.onFirstTouch, { passive: true, once: true });
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) this.reset();
+    });
+  }
+
+  /** Current movement direction. Length is at most 1 (analog sticks give partial values). */
+  get move(): Vec2 {
+    return this.current;
+  }
+
+  isDown(actionId: string): boolean {
+    const action = this.actions.get(actionId);
+    if (!action || !this.active) return false;
+    return this.keyboard.isDown(action) || this.gamepad.isDown(action) || this.touch.isDown(action);
+  }
+
+  /** Enables capture while a match is running; disabled in menus so typing works normally. */
+  setActive(active: boolean) {
+    this.active = active;
+    this.keyboard.enabled = active;
+    this.touch.setVisible(active && this.touchMode);
+    if (!active) this.reset();
+  }
+
+  /** Re-renders touch button labels after a language change. */
+  refreshLabels() {
+    this.touch.refreshLabels();
+  }
+
+  /** Call once per frame before the game reads input. */
+  update() {
+    if (!this.active) {
+      this.current = { x: 0, y: 0 };
+      return;
+    }
+    this.gamepad.poll();
+    const sources = [this.keyboard.move(), this.gamepad.move(), this.touch.move()];
+    let x = 0;
+    let y = 0;
+    for (const s of sources) {
+      x += s.x;
+      y += s.y;
+    }
+    const length = Math.hypot(x, y);
+    this.current = length > 1 ? { x: x / length, y: y / length } : { x, y };
+  }
+
+  reset() {
+    this.keyboard.reset();
+    this.touch.reset();
+    this.current = { x: 0, y: 0 };
+  }
+
+  private onFirstTouch = () => {
+    this.touchMode = true;
+    if (this.active) this.touch.setVisible(true);
+  };
+}

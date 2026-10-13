@@ -1,0 +1,26 @@
+{
+  "name": "@game/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "GAME: server-side rooms and rules for this game. Edit freely in derived repos.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@colyseus/core": "^0.18.18",
+    "@core/maps": "workspace:*",
+    "@core/server": "workspace:*",
+    "@core/shared": "workspace:*",
+    "@game/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@colyseus/sdk": "^0.18.5",
+    "@colyseus/testing": "^0.18.6",
+    "@colyseus/tools": "^0.18.7",
+    "@types/node": "^22.0.0"
+  }
+}

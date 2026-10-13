@@ -1,0 +1,41 @@
+{
+  "name": "online-game-template",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @app/server --filter @app/client dev",
+    "dev:server": "pnpm --filter @app/server dev",
+    "dev:client": "pnpm --filter @app/client dev",
+    "build": "pnpm -r build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm maps:validate",
+    "maps:validate": "pnpm --filter @tools/assets validate-maps",
+    "assets:placeholder": "pnpm --filter @tools/assets placeholder-art",
+    "loadtest": "pnpm --filter @tools/loadtest start",
+    "init-game": "pnpm --filter @tools/template init-game",
+    "build:client": "pnpm --filter @app/client build",
+    "build:server": "pnpm --filter @app/server build",
+    "pack:client": "pnpm --filter @tools/release pack-client",
+    "e2e": "pnpm --filter @tools/e2e test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.4"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "msgpackr-extract"
+    ]
+  },
+  "version": "0.3.0"
+}

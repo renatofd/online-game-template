@@ -1,0 +1,114 @@
+import { type Client, defineRoom } from "@colyseus/core";
+import { schema } from "@colyseus/schema";
+import { boot, type ColyseusTestServer } from "@colyseus/testing";
+import { CORE_PROTOCOL_VERSION, CoreErrorCode } from "@core/shared";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { registerAccountProvider, unregisterAccountProvider } from "../src/accounts/AccountProvider";
+import { createGameServer, isOriginAllowed } from "../src/createGameServer";
+import { GameRoom, type PlayerIdentity } from "../src/GameRoom";
+
+const GAME_VERSION = 7;
+const EmptyState = schema({});
+
+class TestRoom extends GameRoom<{ state: InstanceType<typeof EmptyState> }> {
+  protected readonly protocolVersion = GAME_VERSION;
+  override state = new EmptyState();
+  joined: PlayerIdentity[] = [];
+  override onJoin(client: Client) {
+    this.joined.push(this.identity(client));
+  }
+}
+
+class AccountsOnlyRoom extends TestRoom {
+  protected override allowGuests = false;
+}
+
+const server = createGameServer({
+  rooms: { test: defineRoom(TestRoom), accountsOnly: defineRoom(AccountsOnlyRoom) },
+  protocolVersion: GAME_VERSION,
+});
+const v = { core: CORE_PROTOCOL_VERSION, game: GAME_VERSION };
+
+describe("GameRoom", () => {
+  let colyseus: ColyseusTestServer<typeof server>;
+
+  beforeAll(async () => {
+    colyseus = await boot(server);
+    // Fake provider: accepts data "ok:<id>", rejects anything else.
+    registerAccountProvider({
+      id: "fake",
+      verify: async (payload) => {
+        if (!payload.data.startsWith("ok:")) throw new Error("bad proof");
+        return { id: payload.data.slice(3), name: "FromAccount" };
+      },
+    });
+  });
+  afterAll(async () => {
+    unregisterAccountProvider("fake");
+    await colyseus.shutdown();
+  });
+  beforeEach(async () => {
+    await colyseus.cleanup();
+  });
+
+  const joinedOf = (room: unknown) => (room as TestRoom).joined;
+
+  it("accepts a guest with matching versions and sanitizes its name", async () => {
+    const room = await colyseus.createRoom<object>("test", {});
+    await colyseus.connectTo(room, { v, name: "  Ana‮ " });
+    expect(joinedOf(room)[0]).toMatchObject({ name: "Ana", provider: "guest", verified: false });
+  });
+
+  it.each([
+    ["missing versions", {}],
+    ["old game version", { v: { core: CORE_PROTOCOL_VERSION, game: GAME_VERSION - 1 } }],
+    ["old core version", { v: { core: CORE_PROTOCOL_VERSION - 1, game: GAME_VERSION } }],
+  ])("rejects a client with %s", async (_label, options) => {
+    const room = await colyseus.createRoom<object>("test", {});
+    await expect(colyseus.connectTo(room, options)).rejects.toMatchObject({ code: CoreErrorCode.VERSION_MISMATCH });
+  });
+
+  it("verifies accounts through the registered provider", async () => {
+    const room = await colyseus.createRoom<object>("test", {});
+    await colyseus.connectTo(room, { v, auth: { provider: "fake", data: "ok:42" } });
+    expect(joinedOf(room)[0]).toEqual({ id: "fake:42", name: "FromAccount", provider: "fake", verified: true });
+  });
+
+  it("rejects a forged account proof", async () => {
+    const room = await colyseus.createRoom<object>("test", {});
+    await expect(colyseus.connectTo(room, { v, auth: { provider: "fake", data: "forged" } })).rejects.toMatchObject({
+      code: CoreErrorCode.AUTH_FAILED,
+    });
+  });
+
+  it("treats unknown providers as guests, unless guests are disallowed", async () => {
+    const open = await colyseus.createRoom<object>("test", {});
+    await colyseus.connectTo(open, { v, auth: { provider: "nobody", data: "x" } });
+    expect(joinedOf(open)[0]?.provider).toBe("guest");
+
+    const closed = await colyseus.createRoom<object>("accountsOnly", {});
+    await expect(colyseus.connectTo(closed, { v })).rejects.toMatchObject({ code: CoreErrorCode.AUTH_FAILED });
+  });
+
+  it("serves /health, /version and /metrics", async () => {
+    // @colyseus/testing listens on 2568 by default.
+    const base = "http://localhost:2568";
+    const version = await (await fetch(`${base}/version`)).json();
+    expect(version).toMatchObject({ core: CORE_PROTOCOL_VERSION, game: GAME_VERSION });
+    const metrics = await (await fetch(`${base}/metrics`)).text();
+    expect(metrics).toContain("game_rooms");
+  });
+});
+
+describe("isOriginAllowed", () => {
+  it("allows everything without an allowlist", () => {
+    expect(isOriginAllowed("https://evil.example", [])).toBe(true);
+  });
+  it("only allows listed origins otherwise", () => {
+    const list = ["https://my.game"];
+    expect(isOriginAllowed("https://my.game", list)).toBe(true);
+    expect(isOriginAllowed("https://my.game/", list)).toBe(true);
+    expect(isOriginAllowed("https://evil.example", list)).toBe(false);
+    expect(isOriginAllowed(null, list)).toBe(false);
+  });
+});

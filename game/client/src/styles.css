@@ -1,0 +1,15 @@
+/* Game-specific DOM HUD styles. Core UI variables (--ui-*) can be overridden here too. */
+.arena-hint {
+  position: absolute;
+  inset-block-end: max(16px, var(--ui-safe-bottom));
+  inset-inline: 0;
+  margin-inline: auto;
+  inline-size: max-content;
+  max-inline-size: 90%;
+  padding: 6px 12px;
+  background: rgb(16 16 24 / 0.7);
+  border: 2px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  font-size: 13px;
+  text-align: center;
+}
