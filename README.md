@@ -10,4 +10,5 @@ Base para jogos online web — começando com um jogo estilo `.io` e preparada p
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — princípios, estrutura de pastas proposta, fluxo de dados e caminho de escalabilidade
 - [`docs/RESEARCH.md`](docs/RESEARCH.md) — pesquisa sobre jogos online web e abordagens recomendadas (netcode, transporte, servidor, Phaser 4, Tiled, escala)
+- [`docs/TESTING.md`](docs/TESTING.md) — estratégia de testes do multiplayer (sem precisar de vários jogadores)
 - [`docs/adr/`](docs/adr/) — registros de decisões de arquitetura

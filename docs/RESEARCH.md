@@ -89,7 +89,7 @@ Referências clássicas (leitura obrigatória): Gabriel Gambetta — *Fast-Paced
 | **Nakama** (Go; lógica em TS/Lua/Go) | Contas, amigos, guildas, chat, leaderboards, matchmaker, storage | Pesado para começar; runtime TS embutido limitado | Bom **ao lado** do servidor de jogo para meta-features (social/LiveOps) |
 | **SpacetimeDB** | Banco + lógica no mesmo processo; usado no backend do BitCraft | Modelo muito específico, lock-in, mais jovem | Alternativa a avaliar para mundo persistente único |
 
-**Recomendação:** usar **Colyseus** para ganhar velocidade no `.io`, **mas** mantendo a simulação em `packages/shared` e o protocolo de entidades em `packages/protocol`. Se a escala MMO exigir, a sala do Colyseus pode virar só um "host" de transporte, ou ser substituída por servidor próprio, sem reescrever o jogo. Alternativa válida se preferir controle total desde já: servidor próprio em uWebSockets.js (ver §10).
+**Recomendação:** usar **Colyseus** para ganhar velocidade no `.io`, **mas** mantendo a simulação em `packages/shared` e o protocolo de entidades em `packages/protocol`. Se a escala MMO exigir, a sala do Colyseus pode virar só um "host" de transporte, ou ser substituída por servidor próprio, sem reescrever o jogo. Alternativa válida se preferir controle total desde já: servidor próprio em uWebSockets.js (ver §12).
 
 ## 5. Organização da simulação (ECS)
 
@@ -145,14 +145,53 @@ Referências clássicas (leitura obrigatória): Gabriel Gambetta — *Fast-Paced
 - Ofuscação/minificação do cliente ajuda pouco — não confiar nela.
 - Planejar proteção contra DDoS na borda (ex.: proxy/CDN para assets e provedores com mitigação).
 
-## 10. Decisões em aberto para você
+## 10. GamePush: multiplayer e hospedagem
 
-1. **Servidor:** Colyseus 0.17 (recomendado, mais rápido para chegar ao `.io`) **ou** servidor próprio com uWebSockets.js (mais controle, mais trabalho)?
-2. **Resolução interna e tile size:** sugestão 640×360 com tiles 16×16 (zoom inteiro 2x/3x em 720p/1080p). Ok?
-3. **`pixelArt` vs `smoothPixelArt`:** o jogo terá rotação/escala de sprites (ex.: naves, projéteis girando)? Se sim, `smoothPixelArt`.
-4. **Gerenciador de pacotes:** pnpm (recomendado) ou npm/bun?
-5. **Lint/format:** Biome (rápido, uma ferramenta só) ou ESLint + Prettier?
-6. **Hospedagem inicial:** VPS simples (ex.: Hetzner/DigitalOcean), Fly.io, ou Colyseus Cloud?
+O GamePush tem um módulo de **Multiplayer** construído sobre **Channels** (salas). Pela documentação oficial:
+
+- **Arquitetura host-based:** um dos *jogadores* é eleito "host" e mantém o estado autoritativo; os outros são peers. Não existe servidor de jogo com lógica própria. O SDK faz migração de host automática quando o host cai.
+- Modos de sincronização: **Fast** (60 ticks/s, buffer de 50–100 ms) e **Smooth** (padrão, 20 ticks/s, buffer de 100–300 ms), com interpolação automática de campos numéricos.
+- A própria página de conceitos de Channels diz que um multiplayer completo só com channels não funciona, e sugere modo por turnos. O módulo de Multiplayer é a resposta para tempo real, mas continua host-based.
+- A documentação não informa limite de jogadores por sala, preço nem latência medida.
+
+**Avaliação para este projeto:**
+
+| Critério | GamePush Multiplayer | Servidor próprio (Colyseus) |
+|---|---|---|
+| Quem tem a autoridade | Um jogador (host) → pode trapacear; a conexão/CPU do host afeta todos | Servidor → anti-cheat natural |
+| Jogadores por sala | Não documentado; host-based escala mal com dezenas de jogadores | Dezenas a centenas por sala, com AoI |
+| Caminho para MMO | Não existe (sem servidor, sem zonas, sem persistência do mundo) | Salas → processos → zonas |
+| Esforço inicial | Muito baixo | Médio |
+| Custo | Incluso na plataforma (não documentado) | Servidor pago (a partir de ~US$ 5–15/mês) |
+
+**Conclusão:** para `.io` com muitos jogadores e objetivo de escala massiva, o modelo host-based do GamePush não serve como base. Ele é ótimo para jogos casuais com poucos jogadores (2–8, coop, por turnos). **Recomendação:** usar o **GamePush para o que ele faz bem** — hospedagem do cliente, distribuição para várias plataformas, conta do jogador, leaderboards, anúncios, pagamentos — e o **Colyseus para o tempo real**. O SDK do GamePush fica isolado em um adaptador (`apps/client/src/platform/`), para o jogo também rodar fora dele (itch.io, site próprio).
+
+Pontos a validar antes de lançar:
+- Se as plataformas para onde o GamePush distribui permitem conexões WebSocket para um domínio externo (o servidor de jogo) — verificar as regras de cada plataforma.
+- Se dá para o servidor validar a identidade do jogador do GamePush (para ligar conta GamePush ↔ jogador no servidor de forma segura).
+
+## 11. Hospedagem
+
+Um jogo multiplayer tem **duas partes** que são hospedadas em lugares diferentes:
+
+1. **Cliente** (HTML/JS/imagens — arquivos estáticos): **GamePush** (você já usa, e distribui para várias plataformas) e opcionalmente **itch.io** (bom para testes públicos, devlogs e feedback). Ambos só hospedam arquivos estáticos: **nenhum dos dois roda o servidor de jogo**.
+2. **Servidor de jogo** (Node.js rodando 24h): precisa de um serviço próprio.
+   - **Desenvolvimento e testes:** local, no seu computador (custo zero).
+   - **Primeiro deploy público:** **Colyseus Cloud** (a partir de US$ 15/mês, sem limite de CCU, sem DevOps; sem plano gratuito e sem autoscaling automático) — ou uma **VPS** com Docker (mais barata, mas você cuida do servidor).
+   - **Região:** escolher a mais próxima dos jogadores. Latência importa mais que tudo; se o público for majoritariamente brasileiro, confirmar se há região em São Paulo.
+
+## 12. Decisões
+
+| # | Tema | Decisão | Status |
+|---|---|---|---|
+| 1 | Servidor | Colyseus 0.17 para tempo real; GamePush para plataforma/meta | Proposta (aguardando confirmação) |
+| 2 | Resolução / tile | 640×360, tiles 16×16, zoom inteiro | Aprovada |
+| 3 | Modo de render | `pixelArt: true` (sem rotação/escala de sprites) | Aprovada |
+| 4 | Pacotes | pnpm | Aprovada |
+| 5 | Lint/format | **Biome** (uma ferramenta só, zero configuração) | Escolhida por mim |
+| 6 | Hospedagem | Cliente: GamePush (+ itch.io opcional). Servidor: local → Colyseus Cloud | Proposta |
+
+Estratégia de testes: ver [`TESTING.md`](./TESTING.md).
 
 ---
 
@@ -168,4 +207,5 @@ Referências clássicas (leitura obrigatória): Gabriel Gambetta — *Fast-Paced
 - MMO / AoI — [Topologias MMORPG](https://game-ace.com/blog/mmorpg-games-and-how-to-develop-them/) · [Tese uOttawa: comunicação zonal por visibilidade](https://ruor.uottawa.ca/handle/10393/27862)
 - Backends — [Nakama vs Colyseus (fórum Heroic Labs)](https://forum.heroiclabs.com/t/nakama-vs-colyseus/1632) · [SpacetimeDB](https://spacetimedb.com/) · [SpacetimeDB vs PlayFab vs Nakama](https://tech-insider.org/spacetimedb-vs-playfab-vs-nakama-2026/)
 - ECS — [bitECS 0.4](https://cdn.jsdelivr.net/npm/bitecs@0.4.0/README.md)
-- Infra — [Agones overview](https://agones.dev/site/docs/overview/)
+- Infra — [Agones overview](https://agones.dev/site/docs/overview/) · [Colyseus Cloud](https://colyseus.io/cloud-managed-hosting/)
+- GamePush — [Multiplayer](https://docs.gamepush.com/docs/multiplayer/) · [Conceito de Channels](https://docs.gamepush.com/docs/channels/concept/) · [Gerenciar Channels](https://docs.gamepush.com/docs/channels/manage-channels/) · [Templates (regiões)](https://docs.gamepush.com/docs/channels/templates/)

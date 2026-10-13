@@ -35,6 +35,7 @@ online-game-template/
 │   │   │   ├── input/             # Teclado/mouse/touch/gamepad → InputCommand
 │   │   │   ├── ui/                # HUD, menus (Phaser ou DOM overlay)
 │   │   │   ├── audio/
+│   │   │   ├── platform/          # Adaptadores de plataforma (GamePush, itch.io/web) atrás de uma interface
 │   │   │   └── utils/
 │   │   ├── tests/
 │   │   ├── vite.config.ts
@@ -156,4 +157,4 @@ O que torna isso possível desde já: simulação isolada em `shared`, AoI desde
 4. `shared` + `protocol`: movimento compartilhado, predição + interpolação, codec binário simples.
 5. CI no GitHub Actions.
 
-Decisões em aberto estão listadas em [`RESEARCH.md` §10](./RESEARCH.md#10-decisões-em-aberto-para-você).
+Decisões em aberto estão listadas em [`RESEARCH.md` §12](./RESEARCH.md#12-decisões).
