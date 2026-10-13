@@ -1,0 +1,16 @@
+{
+  "name": "@game/maps",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Reads Tiled (.tmj) maps without Phaser, so the server and tools can use the same map files as the client.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@game/shared": "workspace:*"
+  }
+}

@@ -7,4 +7,8 @@ Cada decisão relevante de arquitetura vira um arquivo `NNNN-titulo-curto.md` co
 - **Alternativas** — o que foi descartado e por quê
 - **Consequências** — impactos positivos e negativos
 
-As decisões em aberto estão em [`../RESEARCH.md` §12](../RESEARCH.md#12-decisões) e serão registradas aqui quando aprovadas.
+Decisões registradas:
+
+- [0001: Colyseus para tempo real, GamePush para plataforma](./0001-colyseus-e-gamepush.md)
+- [0002: Pixel art com resolução interna fixa e zoom inteiro](./0002-pixel-art.md)
+- [0003: Ferramentas de desenvolvimento](./0003-ferramentas.md)

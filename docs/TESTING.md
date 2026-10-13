@@ -6,12 +6,12 @@
 
 | # | Tipo | O que valida | Como | Quem |
 |---|---|---|---|---|
-| 1 | **Testes unitários** | Regras e simulação (movimento, colisão, codec binário) | Vitest em `packages/shared` e `packages/protocol`; rodam em segundos e na CI | Automático |
+| 1 | **Testes unitários e de integração** | Movimento, colisão, leitura de mapas e a sala real do servidor | `pnpm test` (Vitest): `packages/shared`, `packages/maps` e `apps/server/test` (sala Colyseus de verdade, com clientes de teste) | Automático |
 | 2 | **Várias abas/janelas** | Sincronização visual entre clientes | Servidor local + 2–4 abas do navegador (ou um celular na mesma rede Wi-Fi) | Você sozinho |
-| 3 | **Simulador de rede ruim** | Predição, interpolação, reconexão com lag e perda de pacotes | Modo de debug no cliente que adiciona atraso/jitter/perda artificial (ex.: `?lag=150&jitter=30&loss=2`) + painel com ping, tick e bytes/s | Você sozinho |
-| 4 | **Bots** | Servidor com muitos "jogadores" | `tools/loadtest`: clientes headless em Node que conectam e enviam inputs aleatórios. Ex.: 100 bots + você jogando no navegador | Automático |
-| 5 | **Teste de carga** | Quantos jogadores um servidor aguenta | Aumentar os bots até o tempo de tick passar do limite (ex.: 50 ms a 20 Hz); medir CPU, memória e banda | Automático |
-| 6 | **Teste ponta a ponta** | O jogo abre, conecta e dois clientes se veem | Playwright abrindo 2+ navegadores automatizados, na CI | Automático |
+| 3 | **Simulador de rede ruim** | Predição, interpolação e reconexão com lag | Painel de debug do Colyseus (aparece em dev, ou com `?debug` na URL). No console: `__net(150, 30)` = 150 ms ± 30 ms; `__net()` desliga. O botão **Drop** derruba a conexão para testar reconexão. O HUD mostra ping, jogadores e fps | Você sozinho |
+| 4 | **Bots** | Servidor com muitos "jogadores" | `pnpm loadtest` (20 bots). Para mais: `pnpm --filter @game/loadtest exec tsx src/bots.ts --endpoint ws://localhost:2567 --room arena --numClients 200` | Automático |
+| 5 | **Teste de carga** | Quantos jogadores um servidor aguenta | Aumentar os bots até o tempo de tick passar do limite (a 30 Hz, cada tick tem ~33 ms); medir CPU, memória e banda | Automático |
+| 6 | **Teste ponta a ponta** | O jogo abre, conecta e dois clientes se veem | Playwright abrindo 2+ navegadores automatizados (**ainda não implementado**; próximo passo) | Automático |
 | 7 | **Playtest real** | Diversão, balanceamento, latência real entre regiões | Amigos/Discord → build público no itch.io → GamePush | Pessoas |
 
 ## Ordem recomendada

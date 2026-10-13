@@ -182,14 +182,14 @@ Um jogo multiplayer tem **duas partes** que são hospedadas em lugares diferente
 
 ## 12. Decisões
 
-| # | Tema | Decisão | Status |
+| # | Tema | Decisão | Registro |
 |---|---|---|---|
-| 1 | Servidor | Colyseus 0.17 para tempo real; GamePush para plataforma/meta | Proposta (aguardando confirmação) |
-| 2 | Resolução / tile | 640×360, tiles 16×16, zoom inteiro | Aprovada |
-| 3 | Modo de render | `pixelArt: true` (sem rotação/escala de sprites) | Aprovada |
-| 4 | Pacotes | pnpm | Aprovada |
-| 5 | Lint/format | **Biome** (uma ferramenta só, zero configuração) | Escolhida por mim |
-| 6 | Hospedagem | Cliente: GamePush (+ itch.io opcional). Servidor: local → Colyseus Cloud | Proposta |
+| 1 | Servidor | Colyseus para tempo real; GamePush para plataforma/meta | [ADR 0001](./adr/0001-colyseus-e-gamepush.md) |
+| 2 | Resolução / tile | 640×360, tiles 16×16, zoom inteiro, `pixelArt: true` | [ADR 0002](./adr/0002-pixel-art.md) |
+| 3 | Ferramentas | pnpm, TypeScript strict, Biome, Vitest, Vite | [ADR 0003](./adr/0003-ferramentas.md) |
+| 4 | Hospedagem | Cliente: GamePush (+ itch.io opcional). Servidor: local → Colyseus Cloud | §11 |
+
+> **Atualização (implementação):** na hora de criar o projeto, a versão atual do Colyseus já era a **0.18**. Ela traz de fábrica o que este documento previa construir à mão: buffer de inputs com sanitização (`defineInput`), tick fixo (`setFixedTimestep`), **predição + reconciliação** e interpolação no cliente (`@colyseus/sdk/predict`) e um **painel de debug com simulador de latência/jitter**. O template usa tudo isso.
 
 Estratégia de testes: ver [`TESTING.md`](./TESTING.md).
 
