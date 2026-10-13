@@ -76,6 +76,8 @@ ctx.room       // sala Colyseus já conectada, com o primeiro estado recebido
 ctx.input      // move {x,y} e isDown("acao")
 ctx.t          // tradução
 ctx.hud        // elemento DOM para widgets de HUD do jogo
+ctx.audio      // playMusic("theme"), playSfx("join"): volumes do jogador já aplicados
+ctx.ui         // toast(texto), setScores(linhas) → placar + lista (Tab); chat embutido
 ctx.endMatch({ title, rows })   // tela de resultado
 ctx.exitToMenu()
 ```
@@ -117,6 +119,10 @@ Queda de conexão: o SDK tenta reconectar sozinho e a tela mostra "Reconectando�
 | Fim de partida | `ctx.endMatch({ title, rows })` na cena |
 | HUD do jogo (placar) | Elementos DOM em `ctx.hud`, estilos em `game/client/src/styles.css` |
 | Novo mapa | `content/maps` + `game/client/src/assets.ts` (ver `content/README.md`) |
+| Sprite animado novo | `content/sprites/<nome>.png+json` (Aseprite) → `sprite.play(animKey("<nome>", "<tag>"))` |
+| Som ou música nova | Arquivo em `content/audio/sfx` ou `content/audio/music` → `ctx.audio.playSfx("<nome>")` |
+| Placar | `ctx.ui.setScores([{ id, name, score }], meuId)`; os dados vêm de um campo do estado que não passa pela área de interesse (veja `roster`) |
+| Moderar o chat | Sobrescrever `filterChat(texto, client)` na sala (retorne `null` para descartar) |
 | Tema visual da interface | Sobrescrever variáveis `--ui-*` em `game/client/src/styles.css` |
 | Contas reais | Já funciona com GamePush (`GAMEPUSH_*` no servidor). Exigir conta: `allowGuests = false` na sala. Outro provedor: `registerAccountProvider` (ver ADR 0004) |
 | Anúncio com recompensa | `if (await ctx.platform.ads.showRewarded()) { /* dar recompensa via mensagem ao servidor */ }` |
@@ -146,7 +152,5 @@ Observabilidade: `/health`, `/version`, `/metrics` (Prometheus) e logs em JSON.
 
 ## 8. Próximos passos sugeridos
 
-- Pipeline de sprites (Aseprite → atlas e animações) e áudio com volume salvo.
-- Interface reutilizável para os jogos (botões, painéis, listas).
 - Persistência própria (Postgres) quando um jogo precisar de dados de mundo.
 - Zonas de MMO: troca de jogador entre salas e mundo contínuo.

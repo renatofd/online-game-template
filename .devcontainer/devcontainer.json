@@ -1,0 +1,17 @@
+{
+  // Opens the project ready to run in GitHub Codespaces (or VS Code Dev Containers).
+  // After it finishes installing, run `pnpm dev` in the terminal; the game opens in a new tab.
+  "name": "Online Game Template",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
+  "postCreateCommand": "sudo corepack enable && pnpm install --frozen-lockfile",
+  "forwardPorts": [3000, 2567],
+  "portsAttributes": {
+    "3000": { "label": "Jogo", "onAutoForward": "openBrowser" },
+    "2567": { "label": "Servidor do jogo (acessado pela porta 3000)", "onAutoForward": "silent" }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["biomejs.biome"]
+    }
+  }
+}

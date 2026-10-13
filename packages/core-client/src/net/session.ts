@@ -2,10 +2,17 @@ import { ColyseusSDK, type Room } from "@colyseus/sdk";
 import { CORE_PROTOCOL_VERSION, CoreErrorCode, type CoreJoinOptions } from "@core/shared";
 import type { SchemaClass } from "../GameModule";
 
-/** Game server URL: VITE_SERVER_URL, or the page's host on port 2567 (local dev / LAN testing). */
+/**
+ * Game server URL:
+ *  - VITE_SERVER_URL when set (production builds point it at the real server);
+ *  - in development, the page's own origin + "/__server", which the Vite dev
+ *    server proxies to the game server (works on LAN phones and in Codespaces);
+ *  - otherwise the page's host on port 2567.
+ */
 export function serverUrl(): string {
   const fromEnv = import.meta.env.VITE_SERVER_URL as string | undefined;
   if (fromEnv) return fromEnv;
+  if (import.meta.env.DEV) return `${location.origin}/__server`;
   const protocol = location.protocol === "https:" ? "wss" : "ws";
   return `${protocol}://${location.hostname}:2567`;
 }

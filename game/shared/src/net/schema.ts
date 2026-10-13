@@ -22,10 +22,19 @@ export const Player = schema({
 });
 export type Player = SchemaType<typeof Player>;
 
+/** Lightweight per-player info everyone receives (scoreboard, player list), unlike the AoI-filtered `players`. */
+export const RosterEntry = schema({
+  name: t.string(),
+  score: t.uint32(),
+});
+export type RosterEntry = SchemaType<typeof RosterEntry>;
+
 export const ArenaState = schema({
   /** Map identifier; the client loads the matching .tmj. */
   mapId: t.string(),
   /** `.view()`: each client only receives the players in its area of interest. */
   players: t.map(Player).view(),
+  /** Everyone in the room, by session id. Changes rarely, so it is cheap to send to all. */
+  roster: t.map(RosterEntry),
 });
 export type ArenaState = SchemaType<typeof ArenaState>;

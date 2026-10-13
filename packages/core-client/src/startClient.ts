@@ -1,6 +1,13 @@
 import type { Room } from "@colyseus/sdk";
-import { DEFAULT_MAX_NAME_LENGTH, sanitizeName } from "@core/shared";
+import {
+  type ChatBroadcast,
+  CoreMessage,
+  DEFAULT_MAX_CHAT_LENGTH,
+  DEFAULT_MAX_NAME_LENGTH,
+  sanitizeName,
+} from "@core/shared";
 import Phaser from "phaser";
+import { AudioManager } from "./audio/AudioManager";
 import type { GameContext, GameModule, MatchResult } from "./GameModule";
 import { detectLocale, I18n } from "./i18n";
 import { InputManager, isTouchDevice } from "./input";
@@ -10,8 +17,17 @@ import { createPlatform, type Platform } from "./platform";
 import { BOOT_SCENE_KEY, BootScene, type BootSceneData } from "./scenes/BootScene";
 import { Storage } from "./storage";
 import { h } from "./ui/dom";
-import { formatStats, hudView, loadingScreen, menuScreen, messageScreen, resultScreen } from "./ui/screens";
+import {
+  formatStats,
+  hudView,
+  loadingScreen,
+  menuScreen,
+  messageScreen,
+  resultScreen,
+  settingsScreen,
+} from "./ui/screens";
 import { Ui } from "./ui/Ui";
+import { Chat, PlayerList, Scoreboard, Toasts } from "./ui/widgets";
 import "./ui/ui.css";
 
 const DEFAULT_RESOLUTION = { width: 640, height: 360 };
@@ -42,6 +58,11 @@ class ClientApp<State> {
   private gameHud = h("div", { className: "ui-game-hud" });
   private statsEl = h("div", { className: "ui-hud-stats", "aria-hidden": "true" });
   private statsTimer?: number;
+  private audio!: AudioManager;
+  private toasts = new Toasts();
+  private scoreboard!: Scoreboard;
+  private playerList!: PlayerList;
+  private chat!: Chat;
 
   constructor(private readonly game: GameModule<State>) {
     this.storage = new Storage(`${game.id}:`);
@@ -65,6 +86,9 @@ class ClientApp<State> {
     }
 
     this.ui = new Ui(document.body, this.i18n);
+    this.scoreboard = new Scoreboard(this.i18n);
+    this.playerList = new PlayerList(this.i18n);
+    this.chat = new Chat(this.i18n, DEFAULT_MAX_CHAT_LENGTH);
     this.input = new InputManager(this.ui.root, this.game.actions ?? [], this.i18n.t);
     this.i18n.onChange((locale) => {
       this.input.refreshLabels();
@@ -76,9 +100,11 @@ class ClientApp<State> {
     this.ui.show(() => loadingScreen(this.i18n, 0));
     this.phaser = new Phaser.Game(createPhaserConfig(this.resolution, [], this.game.backgroundColor));
     this.phaser.events.on(Phaser.Core.Events.PRE_STEP, () => this.input.update());
+    this.audio = new AudioManager(this.phaser.sound, this.storage);
 
     window.addEventListener("resize", this.onResize);
     window.addEventListener("keydown", this.onGlobalKey);
+    window.addEventListener("keyup", this.onGlobalKeyUp);
     this.onResize();
 
     await new Promise<void>((resolve) => this.phaser.events.once(Phaser.Core.Events.READY, () => resolve()));
@@ -97,6 +123,7 @@ class ClientApp<State> {
 
   private showMenu() {
     this.ui.hideHud();
+    if (this.game.menuMusic) this.audio.playMusic(this.game.menuMusic);
     this.ui.show(() =>
       menuScreen(this.i18n, {
         title: this.game.title,
@@ -112,7 +139,27 @@ class ClientApp<State> {
           this.i18n.setLocale(locale);
         },
         onFullscreen: toggleFullscreen,
+        onSettings: () => this.showSettings(() => this.showMenu()),
         footer: `build ${import.meta.env.VITE_BUILD_ID ?? "dev"}`,
+      }),
+    );
+  }
+
+  private showSettings(back: () => void) {
+    this.ui.show(() =>
+      settingsScreen(this.i18n, {
+        ...this.audio.current,
+        onMusic: (music) => this.audio.update({ music }),
+        onSfx: (sfx) => {
+          this.audio.update({ sfx });
+          this.audio.playSfx(this.game.uiSound ?? "", { volume: 0.8 });
+        },
+        onMuted: (muted) => this.audio.update({ muted }),
+        onLocale: (locale) => {
+          this.storage.set("locale", locale);
+          this.i18n.setLocale(locale);
+        },
+        onBack: back,
       }),
     );
   }
@@ -138,6 +185,7 @@ class ClientApp<State> {
         body: this.game.title,
         actions: [
           { label: this.i18n.t("action.resume"), onClick: () => this.resume(), primary: true },
+          { label: `⚙ ${this.i18n.t("menu.settings")}`, onClick: () => this.showSettings(() => this.showPauseMenu()) },
           { label: this.i18n.t("action.leave"), onClick: () => this.exitToMenu() },
         ],
       }),
@@ -146,7 +194,7 @@ class ClientApp<State> {
 
   /** Platform pause (e.g. an ad is playing): mute and release input; the match itself keeps running. */
   private onPlatformPause(paused: boolean) {
-    this.phaser.sound.mute = paused;
+    this.audio.setPlatformPaused(paused);
     if (paused) this.input.setActive(false);
     else if (this.room && !this.ui.isScreenOpen) this.input.setActive(true);
   }
@@ -211,7 +259,18 @@ class ClientApp<State> {
       this.showError(this.i18n.t("error.title"), this.i18n.t("error.disconnected"));
     });
 
+    const chatEnabled = this.game.chat !== false;
+    if (chatEnabled) {
+      room.onMessage(CoreMessage.chat, (m: ChatBroadcast) => this.chat.add({ name: m.name, text: m.text }));
+      room.onMessage(CoreMessage.chatRejected, () => this.chat.addSystem(this.i18n.t("chat.slowDown")));
+      this.chat.onSend = (text) => room.send(CoreMessage.chat, text);
+    }
+
     this.gameHud.replaceChildren();
+    this.toasts.clear();
+    this.chat.clear();
+    this.scoreboard.hide();
+    this.playerList.setOpen(false);
     this.ui.showHud(() =>
       hudView(
         this.i18n,
@@ -219,6 +278,10 @@ class ClientApp<State> {
           onMenu: () => this.showPauseMenu(),
           canFullscreen: canFullscreen() && isTouchDevice(),
           onFullscreen: toggleFullscreen,
+          touch: isTouchDevice(),
+          onChat: () => this.openChat(),
+          onPlayers: () => this.playerList.toggle(),
+          widgets: [this.toasts.el, this.scoreboard.el, ...(chatEnabled ? [this.chat.el] : []), this.playerList.el],
           gameHud: this.gameHud,
         },
         this.statsEl,
@@ -237,6 +300,15 @@ class ClientApp<State> {
       t: this.i18n.t,
       platform: this.platform,
       hud: this.gameHud,
+      audio: this.audio,
+      ui: {
+        toast: (text, durationMs) => this.toasts.show(text, durationMs),
+        setScores: (rows, selfId) => {
+          this.scoreboard.update(rows, selfId);
+          this.playerList.update(rows, selfId);
+        },
+        chat: { addSystem: (text) => this.chat.addSystem(text) },
+      },
       endMatch: (result) => this.endMatch(result),
       exitToMenu: () => this.exitToMenu(),
     };
@@ -255,6 +327,9 @@ class ClientApp<State> {
     this.leaving = true;
     this.input.setActive(false);
     window.clearInterval(this.statsTimer);
+    this.chat.clear();
+    this.chat.onSend = undefined;
+    this.playerList.setOpen(false);
     this.ui.hideHud();
     this.platform.gameplayStop();
     if (this.phaser.scene.isActive(this.game.gameSceneKey)) this.phaser.scene.stop(this.game.gameSceneKey);
@@ -288,10 +363,28 @@ class ClientApp<State> {
     this.ui?.setRotateHint(wrong);
   };
 
+  private openChat() {
+    if (!this.room || this.game.chat === false || this.ui.isScreenOpen) return;
+    this.input.reset();
+    this.chat.open();
+  }
+
   private onGlobalKey = (e: KeyboardEvent) => {
-    if (e.code !== "Escape" || !this.room) return;
-    if (this.ui.isScreenOpen) this.resume();
-    else this.showPauseMenu();
+    if (!this.room || isTyping(e.target)) return;
+    if (e.code === "Escape") {
+      if (this.ui.isScreenOpen) this.resume();
+      else this.showPauseMenu();
+    } else if (e.code === "Enter" && !this.ui.isScreenOpen) {
+      e.preventDefault();
+      this.openChat();
+    } else if (e.code === "Tab" && !this.ui.isScreenOpen) {
+      e.preventDefault();
+      this.playerList.setOpen(true);
+    }
+  };
+
+  private onGlobalKeyUp = (e: KeyboardEvent) => {
+    if (e.code === "Tab") this.playerList.setOpen(false);
   };
 }
 
@@ -302,4 +395,10 @@ function canFullscreen(): boolean {
 function toggleFullscreen() {
   if (document.fullscreenElement) void document.exitFullscreen();
   else void document.documentElement.requestFullscreen().catch(() => {});
+}
+
+function isTyping(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement
+  );
 }

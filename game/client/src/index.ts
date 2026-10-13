@@ -1,6 +1,6 @@
 import type { GameModule } from "@core/client";
 import { ArenaState, PROTOCOL_VERSION, ROOM_ARENA } from "@game/shared";
-import { preloadAssets } from "./assets";
+import { MUSIC_THEME, preloadAssets, SFX_UI } from "./assets";
 import { messages } from "./messages";
 import { GAME_SCENE_KEY, GameScene } from "./scenes/GameScene";
 import "./styles.css";
@@ -20,4 +20,6 @@ export const game: GameModule<ArenaState> = {
   // Example action (unused by the demo rules): shows how keys, gamepad and touch buttons are bound.
   actions: [],
   messages,
+  menuMusic: MUSIC_THEME,
+  uiSound: SFX_UI,
 };

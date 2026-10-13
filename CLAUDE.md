@@ -31,6 +31,9 @@ Template for online web games (.io now, MMO-ready later): Phaser 4 client, Colys
 
 ## Platform (@core/client)
 
+- Assets: sprites (`content/sprites/<name>.png+json`, Aseprite json-array with `{frame}` filenames) and audio (`content/audio/{music,sfx}/*`) are auto-discovered in `game/client/src/assets.ts`. Play animations with `animKey(sprite, tag)`.
+- Sound: `ctx.audio.playMusic(key)` / `ctx.audio.playSfx(key)`; volumes are player settings, never hardcode them.
+- HUD: `ctx.ui.toast(text)`, `ctx.ui.setScores(rows, selfId)` (scoreboard + Tab list), chat is built in (rooms: `chat = false` to disable, `filterChat` to moderate).
 - Games use `ctx.platform` for ads (`ads.showRewarded()` resolves true only if rewarded), `openLeaderboard?.()`, etc. Never call `window.gp` directly.
 - Secrets never go to the client. `VITE_*` values are public by definition.
 
@@ -43,12 +46,12 @@ Template for online web games (.io now, MMO-ready later): Phaser 4 client, Colys
 
 ## Maps
 
-Tiled `.tmj`, orthogonal, 16x16, embedded tilesets, CSV layers, object layer `objects` with `spawn` points, `collides=true` tile property for collision. Validate with `pnpm maps:validate`. Client registers maps in `game/client/src/assets.ts`.
+Tiled `.tmj`, orthogonal, 16x16, embedded tilesets, CSV layers, object layer `objects` with `spawn` points, `collides=true` tile property for collision. Validate with `pnpm content:validate` (maps, sprites, audio). Client registers maps in `game/client/src/assets.ts`.
 
 ## Commands
 
-- `pnpm dev` — server :2567 + client :3000 (`?debug` shows the Colyseus network panel; `__net(150, 30)` in console simulates lag)
-- `pnpm check` — lint (Biome) + typecheck + tests (Vitest) + map validation. Run before pushing; CI runs the same plus `pnpm build`.
+- `pnpm dev` — server :2567 + client :3000 (the client reaches the server through the Vite proxy at `/__server`; works in Codespaces via `.devcontainer/`) (`?debug` shows the Colyseus network panel; `__net(150, 30)` in console simulates lag)
+- `pnpm check` — lint (Biome) + typecheck + tests (Vitest) + content validation. Run before pushing; CI runs the same plus `pnpm build`.
 - `pnpm lint:fix` — auto-format.
 - `pnpm loadtest` — 20 bots (behaviour in `game/client/src/bot.ts`).
 - `pnpm e2e` — Playwright end-to-end tests (starts server + client). `PW_CHROMIUM_PATH` to reuse a local Chromium.

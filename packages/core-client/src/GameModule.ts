@@ -1,9 +1,11 @@
 import type { Room } from "@colyseus/sdk";
 import type Phaser from "phaser";
+import type { AudioManager } from "./audio/AudioManager";
 import type { MessageCatalog, Translate } from "./i18n";
 import type { ActionBinding, InputManager } from "./input";
 import type { Platform } from "./platform";
 import type { ResultRow } from "./ui/screens";
+import type { ScoreRow } from "./ui/widgets";
 
 /** A Colyseus schema class (e.g. `ArenaState`). */
 // biome-ignore lint/suspicious/noExplicitAny: schema constructors take arbitrary init args.
@@ -49,6 +51,13 @@ export interface GameModule<State = unknown> {
   messages?: MessageCatalog;
   /** Max display name length (grapheme clusters). Default 16. */
   maxNameLength?: number;
+
+  /** Music key (content/audio/music/<key>.*) played on the main menu. */
+  menuMusic?: string;
+  /** Sfx key played as feedback when the sfx volume slider moves. */
+  uiSound?: string;
+  /** Show the chat UI (Enter to type). Default true. Set false if your rooms disable chat. */
+  chat?: boolean;
 }
 
 export interface MatchResult {
@@ -56,6 +65,18 @@ export interface MatchResult {
   title?: string;
   /** Stats rows (already translated). */
   rows?: ResultRow[];
+}
+
+/** Core HUD widgets a game can drive. */
+export interface GameUi {
+  /** Short message at the top of the screen. */
+  toast(text: string, durationMs?: number): void;
+  /** Feeds the corner leaderboard (top 5 + own rank) and the Tab player list. */
+  setScores(rows: ScoreRow[], selfId?: string): void;
+  chat: {
+    /** Adds a local system line to the chat log (not sent to anyone). */
+    addSystem(text: string): void;
+  };
 }
 
 /** Handed to the game scene in `init(data)` when a match starts. */
@@ -66,6 +87,10 @@ export interface GameContext<State = unknown> {
   platform: Platform;
   /** Container for the game's own DOM HUD widgets (score, timer...). Cleared between matches. */
   hud: HTMLElement;
+  /** Music and sound effects with the player's saved volumes. */
+  audio: AudioManager;
+  /** Toasts, scoreboard, player list and chat. */
+  ui: GameUi;
   /** Ends the match: leaves the room and shows the result screen. */
   endMatch(result?: MatchResult): void;
   /** Leaves the room and returns to the main menu. */

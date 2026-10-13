@@ -1,4 +1,4 @@
-# Conteúdo (mapas, tilesets, sprites)
+# Conteúdo (mapas, tilesets, sprites, áudio)
 
 Esta pasta é a **fonte única** do conteúdo. O cliente importa daqui (via Vite) e o servidor lê os mesmos mapas para colisão e spawns, então os dois nunca ficam fora de sincronia.
 
@@ -8,12 +8,54 @@ content/
 │   ├── game.tiled-project   Abra este arquivo no Tiled (define a classe "spawn")
 │   └── arena.tmj            Mapa de exemplo
 ├── tilesets/terrain.png     Tileset provisório (16x16, extrudado)
-└── sprites/player.png       Sprite provisório do jogador (corpo branco para receber cor)
+├── sprites/
+│   ├── src/                 Seus arquivos .aseprite (fonte)
+│   ├── player.png           Folha de sprites exportada
+│   └── player.json          Dados do Aseprite (quadros e animações)
+└── audio/
+    ├── music/theme.wav      Música (carregada sozinha, chave "theme")
+    └── sfx/join.wav, ui.wav Efeitos (chaves "join", "ui")
 ```
 
-A arte atual é **provisória**, gerada por `pnpm assets:placeholder`. Substitua os PNGs à vontade, mas **não rode esse comando depois**, porque ele sobrescreve os arquivos.
+A arte e os sons atuais são **provisórios**, gerados por `pnpm assets:placeholder`. Substitua à vontade, mas **não rode esse comando depois**, porque ele sobrescreve os arquivos.
 
-## Convenções de mapas (checadas por `pnpm maps:validate` na CI)
+`pnpm content:validate` confere mapas, sprites e áudio. Ele roda na CI e no `pnpm check`.
+
+## Sprites e animações (Aseprite)
+
+**Tudo em `content/sprites/` é carregado sozinho:** `nome.png` + `nome.json` viram a textura `"nome"`, e cada **tag** do Aseprite vira uma animação `"nome/tag"`.
+
+```ts
+sprite.play(animKey("player", "walk"));   // "player/walk"
+```
+
+As animações respeitam a duração de cada quadro, a direção (forward, reverse, pingpong) e a repetição definidas no Aseprite.
+
+### Como exportar
+
+1. Salve o `.aseprite` em `content/sprites/src/`, por exemplo `hero.aseprite`.
+2. Crie **tags** para cada animação (`idle`, `walk`, `attack`...).
+3. Exporte de um destes jeitos:
+   - **Automático:** rode `pnpm assets:sprites`. Precisa do executável do [Aseprite](https://www.aseprite.org/) ou do [LibreSprite](https://libresprite.github.io/), que é gratuito, no PATH. Se não estiver no PATH, use `ASEPRITE="C:/Program Files/Aseprite/Aseprite.exe" pnpm assets:sprites`.
+   - **Manual no Aseprite:** *File → Export Sprite Sheet*. Na aba Output, marque **JSON Data** com formato **Array**, em *Item Filename* escreva `{frame}` e marque **Tags**. Salve como `content/sprites/hero.png` + `hero.json`.
+4. Rode `pnpm content:validate`.
+
+Para mudar a cor em tempo real (cor por jogador), desenhe o corpo em branco ou cinza claro e use `setTint` no jogo, como faz o jogador de exemplo.
+
+## Áudio
+
+**Tudo em `content/audio/music/` e `content/audio/sfx/` é carregado sozinho.** A chave é o nome do arquivo.
+
+```ts
+ctx.audio.playMusic("theme");                               // troca de música com fade
+ctx.audio.playSfx("join", { rate: 0.95 + Math.random() * 0.1 });
+```
+
+- **Formatos:** `.ogg`, `.mp3`, `.m4a` e `.wav`. Para máxima compatibilidade, coloque o mesmo som em dois formatos (`theme.ogg` + `theme.m4a`) e o navegador escolhe o que suporta. Prefira `.ogg`/`.m4a` aos `.wav`, que são grandes.
+- **Volume:** o jogador ajusta música e efeitos em **⚙ Configurações** (menu e pausa), e o valor fica salvo. Durante anúncios do GamePush tudo é silenciado.
+- **Música do menu:** defina `menuMusic` no `GameModule`. Os navegadores só tocam som depois do primeiro toque ou clique, e a música começa sozinha nesse momento.
+
+## Convenções de mapas
 
 - **Orientação ortogonal**, mapa **não infinito**, tiles de **16x16**.
 - **Tileset embutido** no mapa (o Phaser não carrega tilesets externos `.tsx`). No Tiled, use *Map → Embed Tileset* ou crie o tileset já embutido.
@@ -49,4 +91,4 @@ Na layer `objects`, adicione **pontos** (ou retângulos) com a classe **`spawn`*
 1. Crie `content/maps/<id>.tmj` seguindo as convenções acima.
 2. Registre a URL em `game/client/src/assets.ts` (`MAPS`). Se ele usar um tileset novo, registre também em `TILESETS`, com o **mesmo nome do tileset no Tiled**.
 3. Crie a sala com `{ mapId: "<id>" }` (veja `game/server/src/rooms/ArenaRoom.ts`).
-4. Rode `pnpm maps:validate`.
+4. Rode `pnpm content:validate`.

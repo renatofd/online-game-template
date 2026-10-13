@@ -4,3 +4,5 @@ import { fileURLToPath } from "node:url";
 export const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 export const CONTENT_DIR = resolve(REPO_ROOT, "content");
 export const MAPS_DIR = resolve(CONTENT_DIR, "maps");
+export const SPRITES_DIR = resolve(CONTENT_DIR, "sprites");
+export const AUDIO_DIR = resolve(CONTENT_DIR, "audio");

@@ -22,3 +22,15 @@ export function sanitizeName(raw: unknown, fallback = "Player", maxLength = DEFA
   const limited = graphemes.slice(0, maxLength).join("").trim();
   return limited.length > 0 ? limited : fallback;
 }
+
+/** Default maximum chat message length (grapheme clusters). */
+export const DEFAULT_MAX_CHAT_LENGTH = 140;
+
+/**
+ * Normalizes a chat message: same character rules as names (no control or
+ * bidi-override characters, collapsed whitespace), limited to `maxLength`
+ * user-perceived characters. Returns "" for empty or invalid input.
+ */
+export function sanitizeChat(raw: unknown, maxLength = DEFAULT_MAX_CHAT_LENGTH): string {
+  return sanitizeName(raw, "", maxLength);
+}

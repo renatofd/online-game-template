@@ -6,3 +6,18 @@ test("touch devices get the virtual joystick", async ({ page }) => {
   await expect(page.locator(".touch-controls")).toBeVisible();
   await expect(page.locator(".touch-stick-zone")).toBeVisible();
 });
+
+test("touch HUD buttons are reachable above the joystick area", async ({ page }) => {
+  await joinMatch(page, "Hana", "lang=en");
+  await page.getByRole("button", { name: "Chat" }).tap();
+  await expect(page.locator(".ui-chat-input")).toBeFocused();
+  await page.locator(".ui-chat-input").fill("hi from mobile");
+  await page.locator(".ui-chat-input").press("Enter");
+  await expect(page.locator(".ui-chat-line").last()).toContainText("hi from mobile");
+
+  await page.getByRole("button", { name: "Players" }).tap();
+  await expect(page.locator(".ui-playerlist")).toBeVisible();
+
+  await page.getByRole("button", { name: "Menu" }).tap();
+  await expect(page.getByRole("button", { name: "Leave match" })).toBeVisible();
+});

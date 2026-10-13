@@ -2,9 +2,9 @@ import { Callbacks, type InputHandle } from "@colyseus/sdk";
 import { Predict } from "@colyseus/sdk/predict";
 import { type GameContext, h } from "@core/client";
 import { type GameMap, parseTiledMap, type TiledMap } from "@core/maps";
-import { type ArenaState, type MoveInput, type Player, stepPlayer, TILE_SIZE } from "@game/shared";
+import { type ArenaState, type MoveInput, type Player, type RosterEntry, stepPlayer, TILE_SIZE } from "@game/shared";
 import Phaser from "phaser";
-import { mapKey, SPRITE_PLAYER, tilesetKey } from "../assets";
+import { MUSIC_THEME, mapKey, SFX_JOIN, SPRITE_PLAYER, tilesetKey } from "../assets";
 import { PlayerView } from "../render/PlayerView";
 
 export const GAME_SCENE_KEY = "game";
@@ -64,6 +64,8 @@ export class GameScene extends Phaser.Scene {
     callbacks.onRemove("players", (_player: Player, sessionId: string) => this.removePlayer(sessionId));
 
     this.showControlsHint();
+    this.ctx.audio.playMusic(MUSIC_THEME);
+    this.watchRoster();
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       for (const view of this.views.values()) view.destroy();
@@ -89,6 +91,37 @@ export class GameScene extends Phaser.Scene {
     // Same .tmj the server parsed, so client-side collision matches exactly.
     const raw = this.cache.tilemap.get(key)?.data as TiledMap;
     return parseTiledMap(raw, { tileSize: TILE_SIZE });
+  }
+
+  /**
+   * Roster → core scoreboard / player list (Tab), plus a toast and a sound when
+   * someone joins or leaves. The roster is not AoI-filtered, so everyone is listed.
+   */
+  private watchRoster() {
+    const { room, ui, t, audio } = this.ctx;
+    const refresh = () =>
+      ui.setScores(
+        [...room.state.roster.entries()].map(([id, r]) => ({ id, name: r.name, score: r.score })),
+        room.sessionId,
+      );
+    refresh();
+    this.time.addEvent({ delay: 500, loop: true, callback: refresh });
+
+    // Callbacks fire for entries already present too; only announce players arriving later.
+    const known = new Set(room.state.roster.keys());
+    const callbacks = Callbacks.get(room);
+    callbacks.onAdd("roster", (entry: RosterEntry, id: string) => {
+      if (known.has(id)) return;
+      known.add(id);
+      ui.toast(t("toast.joined", { name: entry.name }));
+      audio.playSfx(SFX_JOIN, { rate: 0.95 + Math.random() * 0.1 });
+      refresh();
+    });
+    callbacks.onRemove("roster", (entry: RosterEntry, id: string) => {
+      known.delete(id);
+      if (id !== room.sessionId) ui.toast(t("toast.left", { name: entry.name }));
+      refresh();
+    });
   }
 
   /** Example of a game-owned DOM HUD widget: a hint that fades after a few seconds. */

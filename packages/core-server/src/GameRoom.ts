@@ -7,7 +7,16 @@ import {
   ServerError,
   type StepContext,
 } from "@colyseus/core";
-import { CoreErrorCode, type CoreJoinOptions, isCompatibleVersion, sanitizeName } from "@core/shared";
+import {
+  type ChatBroadcast,
+  CoreErrorCode,
+  type CoreJoinOptions,
+  CoreMessage,
+  DEFAULT_MAX_CHAT_LENGTH,
+  isCompatibleVersion,
+  sanitizeChat,
+  sanitizeName,
+} from "@core/shared";
 import { getAccountProvider } from "./accounts/AccountProvider";
 import { log } from "./log";
 import { metrics } from "./metrics";
@@ -24,6 +33,18 @@ export interface PlayerIdentity {
   verified: boolean;
 }
 
+/** Chat settings for a room. */
+export interface ChatOptions {
+  /** Max message length in user-perceived characters. */
+  maxLength: number;
+  /** Sustained messages per second per player. */
+  perSecond: number;
+  /** Messages a player may send in a quick burst before the rate applies. */
+  burst: number;
+}
+
+const DEFAULT_CHAT: ChatOptions = { maxLength: DEFAULT_MAX_CHAT_LENGTH, perSecond: 0.5, burst: 4 };
+
 /**
  * Base class for every game room. Handles what all rooms need so games don't:
  *
@@ -34,6 +55,7 @@ export interface PlayerIdentity {
  *  - holds a dropped player's seat for `reconnectGraceSeconds`
  *  - disconnects clients that flood messages (`maxMessagesPerSecond`)
  *  - measures tick duration for /metrics (`startSimulation`)
+ *  - room chat with sanitizing and per-player rate limit (`chat`, `filterChat`)
  *
  * Subclasses implement the game: state, inputs, onCreate/onJoin/onLeave and the simulation.
  * If you override onAuth or onDrop, call `super`.
@@ -50,6 +72,50 @@ export abstract class GameRoom<T extends RoomOptions = RoomOptions> extends Room
 
   /** Inputs at the tick rate + occasional messages, with headroom for bursts after a stall. */
   override maxMessagesPerSecond = 120;
+
+  /** Room chat settings, or false to disable chat in this room. */
+  protected chat: ChatOptions | false = DEFAULT_CHAT;
+
+  /** Token bucket per session for chat rate limiting. */
+  private chatBuckets = new Map<string, { tokens: number; at: number }>();
+
+  constructor() {
+    super();
+    this.onMessage(CoreMessage.chat, (client: Client, text: unknown) => this.handleChat(client, text));
+  }
+
+  /**
+   * Last chance to change or drop a chat message (profanity filter, commands...).
+   * Return the text to broadcast, or null to drop it. Default: unchanged.
+   */
+  protected filterChat(text: string, _client: Client): string | null {
+    return text;
+  }
+
+  private handleChat(client: Client, raw: unknown) {
+    const options = this.chat;
+    if (!options) return;
+    const text = sanitizeChat(raw, options.maxLength);
+    if (!text) return;
+
+    const now = Date.now();
+    const bucket = this.chatBuckets.get(client.sessionId) ?? { tokens: options.burst, at: now };
+    bucket.tokens = Math.min(options.burst, bucket.tokens + ((now - bucket.at) / 1000) * options.perSecond);
+    bucket.at = now;
+    if (bucket.tokens < 1) {
+      this.chatBuckets.set(client.sessionId, bucket);
+      metrics.inc("chat_rate_limited_total");
+      client.send(CoreMessage.chatRejected, { reason: "rate" });
+      return;
+    }
+    bucket.tokens -= 1;
+    this.chatBuckets.set(client.sessionId, bucket);
+
+    const filtered = this.filterChat(text, client);
+    if (!filtered) return;
+    const message: ChatBroadcast = { from: client.sessionId, name: this.identity(client).name, text: filtered };
+    this.broadcast(CoreMessage.chat, message);
+  }
 
   override async onAuth(client: Client, options: CoreJoinOptions, context: AuthContext): Promise<PlayerIdentity> {
     if (!isCompatibleVersion(options?.v, this.protocolVersion)) {

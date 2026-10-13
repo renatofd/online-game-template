@@ -247,7 +247,10 @@ body {
     max(8px, var(--ui-safe-left));
 }
 
+/* HUD buttons, chat and player list sit above the touch controls layer (z-index 1). */
 .ui-hud-top {
+  position: relative;
+  z-index: 2;
   display: flex;
   gap: 6px;
   pointer-events: auto;
@@ -291,6 +294,7 @@ body {
 .touch-controls {
   position: absolute;
   inset: 0;
+  z-index: 1;
 }
 
 /* Joystick zone: left half (start side; stays on the left even in RTL). */
@@ -352,4 +356,213 @@ body {
 
 .touch-button.pressed {
   background: rgb(255 255 255 / 0.35);
+}
+
+/* ─── Settings ──────────────────────────────────────────────────────────── */
+
+.ui-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: start;
+}
+
+.ui-settings h2 {
+  text-align: center;
+}
+
+.ui-slider {
+  display: grid;
+  grid-template-columns: 1fr 2fr 3.5em;
+  align-items: center;
+  gap: 10px;
+}
+
+.ui-slider input[type="range"] {
+  accent-color: var(--ui-accent);
+  inline-size: 100%;
+  min-block-size: 32px;
+}
+
+.ui-slider-value {
+  text-align: end;
+  color: var(--ui-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-block-size: 32px;
+}
+
+.ui-check input {
+  inline-size: 20px;
+  block-size: 20px;
+  accent-color: var(--ui-accent);
+}
+
+/* ─── HUD widgets ───────────────────────────────────────────────────────── */
+
+.ui-toasts {
+  position: absolute;
+  inset-block-start: max(12px, var(--ui-safe-top));
+  inset-inline: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.ui-toast {
+  background: var(--ui-bg);
+  border: 2px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  padding: 4px 12px;
+  font-size: 13px;
+  max-inline-size: 80vw;
+  transition: opacity 0.4s;
+}
+
+.ui-toast.leaving {
+  opacity: 0;
+}
+
+.ui-scoreboard {
+  position: absolute;
+  inset-block-start: max(56px, calc(var(--ui-safe-top) + 48px));
+  inset-inline-end: max(8px, var(--ui-safe-right));
+  inline-size: 180px;
+  background: rgb(16 16 24 / 0.6);
+  border: 2px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  padding: 6px 8px;
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.ui-scoreboard h3,
+.ui-playerlist h3 {
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: var(--ui-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ui-scoreboard ol,
+.ui-playerlist ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ui-score-row {
+  display: grid;
+  grid-template-columns: 2em 1fr auto;
+  gap: 6px;
+  padding-block: 1px;
+}
+
+.ui-score-row.self {
+  color: var(--ui-accent);
+  font-weight: 700;
+}
+
+.ui-score-rank,
+.ui-score-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-score-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-score-value {
+  text-align: end;
+}
+
+.ui-playerlist {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  transform: translate(-50%, -50%);
+  inline-size: min(360px, 90vw);
+  max-block-size: 70vh;
+  overflow-y: auto;
+  background: var(--ui-bg);
+  border: 2px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  padding: 12px 16px;
+  font-size: 14px;
+  pointer-events: auto;
+  z-index: 3;
+}
+
+[dir="rtl"] .ui-playerlist {
+  transform: translate(50%, -50%);
+}
+
+.ui-chat {
+  position: absolute;
+  inset-block-end: max(28px, calc(var(--ui-safe-bottom) + 20px));
+  inset-inline-start: max(8px, var(--ui-safe-left));
+  inline-size: min(360px, 60vw);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.ui-chat-log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-block-size: 30vh;
+  overflow: hidden;
+  font-size: 13px;
+  text-shadow:
+    0 1px 0 #000,
+    0 0 3px #000;
+}
+
+.ui-chat-line {
+  transition: opacity 0.6s;
+  overflow-wrap: anywhere;
+}
+
+.ui-chat-line.system {
+  color: var(--ui-muted);
+  font-style: italic;
+}
+
+.ui-chat-line.faded {
+  opacity: 0;
+}
+
+.ui-chat.open .ui-chat-line.faded {
+  opacity: 1;
+}
+
+.ui-chat.open .ui-chat-log {
+  background: rgb(16 16 24 / 0.6);
+  overflow-y: auto;
+  pointer-events: auto;
+}
+
+.ui-chat-form {
+  pointer-events: auto;
+}
+
+.ui-chat-input {
+  inline-size: 100%;
+  text-align: start;
 }
