@@ -33,6 +33,8 @@ Recursos que todo jogo usa: sprites animados, áudio e componentes de interface.
   - aviso e som quando alguém entra ou sai;
   - música de tema.
 - `pnpm content:validate` valida mapas, sprites e áudio (substitui `maps:validate`).
+- **GitHub Codespaces:** `.devcontainer/` instala tudo sozinho e abre o jogo no navegador, sem instalar nada no computador.
+- **Proxy em desenvolvimento:** o cliente fala com o servidor por `/__server` na própria página, e o Vite repassa ao servidor. Só a porta 3000 precisa estar acessível, o que facilita o celular na rede local, o Codespaces e túneis. Em produção nada muda (`VITE_SERVER_URL`).
 - 14 traduções para as novas mensagens do núcleo.
 
 ### Corrigido

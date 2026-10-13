@@ -74,7 +74,7 @@ Variáveis lidas **no build** (arquivo `apps/client/.env.local`, que não vai pa
 
 | Variável | Exemplo | Para quê |
 |---|---|---|
-| `VITE_SERVER_URL` | `wss://servidor.meu-jogo.example` | Endereço do servidor de jogo. **Obrigatório em produção** (sem ele o cliente tenta `:2567` no mesmo host) |
+| `VITE_SERVER_URL` | `wss://servidor.meu-jogo.example` | Endereço do servidor de jogo. **Obrigatório em produção.** Em desenvolvimento o cliente usa `/__server` na própria página, que o Vite repassa ao servidor; num build sem essa variável, tenta `:2567` no mesmo host |
 | `VITE_PLATFORM` | `gamepush` | `web` (itch.io, site próprio) ou `gamepush` |
 | `VITE_GAMEPUSH_PROJECT_ID` | `31385` | ID do projeto GamePush |
 | `VITE_GAMEPUSH_PUBLIC_TOKEN` | `bSDL…` | Token **público** do GamePush (feito para ficar no cliente) |

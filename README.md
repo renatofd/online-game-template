@@ -18,7 +18,17 @@ Base para jogos online web: começa como um jogo estilo `.io` e foi organizada p
 - [pnpm](https://pnpm.io/) (`corepack enable` já ativa a versão certa)
 - Opcional: [Tiled](https://www.mapeditor.org/) para editar mapas
 
-## Rodando
+## Testar no navegador, sem instalar nada (GitHub Codespaces)
+
+1. No GitHub, abra o repositório e clique em **Code → Codespaces → Create codespace on main**.
+2. Espere a instalação terminar (alguns minutos na primeira vez; o terminal mostra `pnpm install`).
+3. No terminal, rode `pnpm dev`.
+4. O jogo abre numa nova aba. Se não abrir, vá na aba **Ports** e clique no globo da porta **3000**.
+5. Para testar multiplayer, abra o mesmo endereço em outra aba, ou no celular (logado no GitHub).
+
+O Codespaces tem uma cota mensal gratuita. Quando terminar, pare o codespace em [github.com/codespaces](https://github.com/codespaces) para não gastar a cota.
+
+## Rodando no seu computador
 
 ```bash
 pnpm install
@@ -29,7 +39,7 @@ Abra http://localhost:3000 em **duas ou mais abas** para ver os jogadores sincro
 
 - **Simular internet ruim:** abra com `?debug` na URL para ver o painel de debug do Colyseus. No console do navegador, `__net(150, 30)` simula 150 ms de ping ± 30 ms de variação; `__net()` desliga. O botão **Drop** derruba a conexão para testar a reconexão.
 - **Idioma:** `?lang=ar` (ou qualquer um dos 14) força o idioma; também dá para trocar no menu.
-- **Testar no celular:** com o celular na mesma Wi-Fi, abra `http://<ip-do-seu-pc>:3000`.
+- **Testar no celular:** com o celular na mesma Wi-Fi, abra `http://<ip-do-seu-pc>:3000`. Em desenvolvimento o jogo fala com o servidor pela própria porta 3000, então não é preciso liberar outra porta.
 - **Bots:** com o servidor rodando, `pnpm loadtest` coloca 20 jogadores falsos andando pelo mapa.
 - **Monitor do servidor (dev):** http://localhost:2567/monitor
 
