@@ -24,6 +24,11 @@ describe("parseEnv", () => {
     expect(env.logLevel).toBe("info");
   });
 
+  it("fills the process port into PUBLIC_ADDRESS", () => {
+    expect(parseEnv({ PUBLIC_ADDRESS: "my.game/{port}", NODE_APP_INSTANCE: "2" }).publicAddress).toBe("my.game/2569");
+    expect(() => parseEnv({ PUBLIC_ADDRESS: "wss://my.game" })).toThrow(/PUBLIC_ADDRESS/);
+  });
+
   it("reports every problem at once", () => {
     expect(() =>
       parseEnv({ ALLOWED_ORIGINS: "not-a-url", REDIS_URL: "localhost", GAMEPUSH_PROJECT_ID: "1", LOG_LEVEL: "loud" }),

@@ -1,0 +1,19 @@
+# Keep LF everywhere (Biome checks formatting byte by byte; Windows Git would check out CRLF otherwise).
+* text=auto eol=lf
+
+# Binary content
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.wav binary
+*.ogg binary
+*.mp3 binary
+*.m4a binary
+*.aseprite binary
+*.ase binary
+*.ttf binary
+*.woff binary
+*.woff2 binary
+*.zip binary

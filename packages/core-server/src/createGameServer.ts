@@ -32,7 +32,7 @@ export interface GameServerOptions<T extends Record<string, RegisteredHandler>> 
  *  - /playground in development only
  *  - ALLOWED_ORIGINS: only pages from these origins may connect (WebSocket + matchmaking CORS)
  *  - MAX_PAYLOAD_BYTES: larger WebSocket messages are rejected
- *  - REDIS_URL: share rooms and presence across processes/machines (horizontal scaling)
+ *  - REDIS_URL + PUBLIC_ADDRESS: share rooms and presence across processes/machines (horizontal scaling)
  *  - GAMEPUSH_PROJECT_ID + GAMEPUSH_API_SECRET: verify GamePush players on join
  */
 export function createGameServer<T extends Record<string, RegisteredHandler>>(options: GameServerOptions<T>) {
@@ -59,6 +59,7 @@ export function createGameServer<T extends Record<string, RegisteredHandler>>(op
     ...(config.redisUrl
       ? { presence: new RedisPresence(config.redisUrl), driver: new RedisDriver(config.redisUrl) }
       : {}),
+    ...(config.publicAddress ? { publicAddress: config.publicAddress } : {}),
     express: (app: Application) => {
       app.get("/health", (_req, res) => {
         res.json({ ok: true });

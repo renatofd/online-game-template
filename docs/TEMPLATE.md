@@ -27,6 +27,7 @@ O jogo de exemplo ("Arena Demo") está todo em `game/` e `content/`. Ele serve d
 git clone https://github.com/renatofd/online-game-template.git space-blobs
 cd space-blobs
 git remote rename origin template
+git config remote.template.tagOpt --no-tags   # as tags do template não se misturam às do jogo
 git remote add origin https://github.com/meu-usuario/space-blobs.git
 
 # 3. Dê nome ao jogo
@@ -48,13 +49,13 @@ git push -u origin main
 4. Troque cena, render e assets em `game/client`. Os textos do jogo ficam em `game/client/src/messages.ts`, nos 14 idiomas.
 5. Troque a arte e os mapas em `content/` (veja `content/README.md`).
 6. Ajuste `game/client/src/bot.ts` para os bots mandarem os inputs do seu jogo.
-7. `pnpm check` antes de cada push (é o que a CI roda).
+7. `pnpm check` antes de cada push. A CI roda isso, mais o build e os testes e2e.
 
 ## Receber atualizações do template
 
 ```bash
 git fetch template
-git merge template/main      # ou uma versão: git merge v0.3.0
+git merge template/main
 pnpm install
 pnpm check
 ```

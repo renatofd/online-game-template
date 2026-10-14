@@ -13,6 +13,12 @@ export interface ServerEnv {
   monitorPassword?: string;
   /** Redis connection URL. When set, rooms/presence are shared across processes. */
   redisUrl?: string;
+  /**
+   * Address clients use to reach THIS process directly (host[:port][/path], no protocol),
+   * e.g. "eu-1.my.game" or "my.game/2568". Needed when several processes share rooms
+   * through Redis: each room lives in one process and players must connect to it.
+   */
+  publicAddress?: string;
   /** GamePush Server API credentials. When set, GamePush players are verified server-side. */
   gamepush?: { projectId: string; apiSecret: string };
   /** Minimum log level. */
@@ -46,6 +52,11 @@ export function parseEnv(source: NodeJS.ProcessEnv = process.env): ServerEnv {
   const redisUrl = source.REDIS_URL || undefined;
   if (redisUrl && !/^rediss?:\/\//.test(redisUrl)) errors.push("REDIS_URL must start with redis:// or rediss://");
 
+  const port = Number(source.PORT || 2567) + Number(source.NODE_APP_INSTANCE || 0);
+  const publicAddress = source.PUBLIC_ADDRESS?.trim().replaceAll("{port}", String(port)) || undefined;
+  if (publicAddress && /^[a-z]+:\/\//i.test(publicAddress))
+    errors.push("PUBLIC_ADDRESS must not include the protocol (use host[:port][/path])");
+
   let gamepush: ServerEnv["gamepush"];
   const gpProject = source.GAMEPUSH_PROJECT_ID;
   const gpSecret = source.GAMEPUSH_API_SECRET;
@@ -65,6 +76,7 @@ export function parseEnv(source: NodeJS.ProcessEnv = process.env): ServerEnv {
     allowedOrigins,
     monitorPassword: source.MONITOR_PASSWORD || undefined,
     redisUrl,
+    publicAddress,
     gamepush,
     logLevel,
     maxPayloadBytes,

@@ -17,4 +17,4 @@ O jogo começa como `.io` (dezenas de jogadores por sala) e deve poder evoluir p
 ## Consequências
 - O servidor de jogo precisa de hospedagem própria (local no desenvolvimento; Colyseus Cloud ou VPS em produção).
 - O Colyseus 0.18 já fornece predição, reconciliação, interpolação, reconexão e simulador de latência.
-- Pendente: confirmar se as plataformas de distribuição do GamePush permitem conexão WebSocket a um domínio externo, e como validar no servidor a identidade do jogador do GamePush.
+- Pendente: confirmar se as plataformas de distribuição do GamePush permitem conexão WebSocket a um domínio externo. (A validação da identidade do jogador no servidor foi resolvida na ADR 0004.)

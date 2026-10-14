@@ -51,7 +51,7 @@ Tiled `.tmj`, orthogonal, 16x16, embedded tilesets, CSV layers, object layer `ob
 ## Commands
 
 - `pnpm dev` — server :2567 + client :3000 (the client reaches the server through the Vite proxy at `/__server`; works in Codespaces via `.devcontainer/`) (`?debug` shows the Colyseus network panel; `__net(150, 30)` in console simulates lag)
-- `pnpm check` — lint (Biome) + typecheck + tests (Vitest) + content validation. Run before pushing; CI runs the same plus `pnpm build`.
+- `pnpm check` — lint (Biome) + typecheck + tests (Vitest) + content validation. Run before pushing; CI runs the same plus `pnpm build` and `pnpm e2e`.
 - `pnpm lint:fix` — auto-format.
 - `pnpm loadtest` — 20 bots (behaviour in `game/client/src/bot.ts`).
 - `pnpm e2e` — Playwright end-to-end tests (starts server + client). `PW_CHROMIUM_PATH` to reuse a local Chromium.

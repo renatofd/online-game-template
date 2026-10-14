@@ -6,12 +6,14 @@
 FROM node:22-slim AS build
 WORKDIR /repo
 RUN corepack enable
+# Download dependencies from the lockfile only, so this layer is cached until it changes.
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+RUN pnpm fetch
 COPY . .
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --offline
 ARG BUILD_ID=dev
 RUN pnpm --filter @app/server build \
  && pnpm --filter @app/server deploy --prod --legacy /out \
- && cp -r apps/server/build /out/build \
  && mkdir -p /out/content && cp -r content/maps /out/content/maps
 
 FROM node:22-slim

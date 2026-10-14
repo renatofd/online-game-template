@@ -11,4 +11,4 @@
 ## Consequências
 - Cada pixel da arte vira um bloco NxN exato na tela.
 - Em telas cuja proporção não é 16:9 aparecem bordas (letterbox).
-- Texto do HUD é desenhado em baixa resolução, com estética pixelada.
+- Menus e HUD ficam no DOM, fora do canvas, com fonte nítida (ver ADR 0005). Só os rótulos dentro do mundo (nomes sobre os jogadores) são texto do Phaser.

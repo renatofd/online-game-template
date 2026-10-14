@@ -98,13 +98,13 @@ Cliente (60+ fps)                                   Servidor (tick fixo de 30 Hz
 InputManager (teclado+gamepad+toque) → move {x,y}
 GameScene: 1 input por tick (predict.tick)     ──► buffer de inputs por jogador (defineInput)
   reconciler aplica stepPlayer na hora                sanitize corta valores fora do intervalo
-                                                       setFixedTimestep → stepPlayer(...)
+                                                       startSimulation → stepPlayer(...)
 Estado (binário, delta) ◄────────────────────────── ArenaState { mapId, players }
   próprio jogador: rollback + replay se divergir
   outros: interpolação
 ```
 
-Entrada na sala: o cliente envia `{ v: {core, game}, name, locale }`. O `GameRoom.onAuth` valida as versões, depois `authenticate()` define a identidade (convidado por padrão; GamePush no futuro). O cliente só começa a partida depois que o primeiro estado completo chega.
+Entrada na sala: o cliente envia `{ v: {core, game}, name, locale, auth? }`. O `GameRoom.onAuth` valida as versões, depois `authenticate()` define a identidade: conta verificada quando há `auth` e um provedor registrado (GamePush), ou convidado. O cliente só começa a partida depois que o primeiro estado completo chega.
 
 Queda de conexão: o SDK tenta reconectar sozinho e a tela mostra "Reconectando…". O servidor guarda a vaga por 20 s. Se não voltar, aparece "Você foi desconectado".
 

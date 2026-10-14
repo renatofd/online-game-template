@@ -1,7 +1,7 @@
 # Local production-like stack: game server + Redis.
 #   docker compose -f infra/docker-compose.yml up --build
-# Scale out (rooms shared through Redis; put a load balancer in front for real traffic):
-#   docker compose -f infra/docker-compose.yml up --build --scale server=2
+# The server answers on http://localhost:2567, so `pnpm dev:client` can use it.
+# Running several servers needs one PUBLIC_ADDRESS per server (see docs/DEPLOY.md, "Escala horizontal").
 services:
   server:
     build:
@@ -14,10 +14,8 @@ services:
       # GAMEPUSH_PROJECT_ID: ""
       # GAMEPUSH_API_SECRET: ""
     ports:
-      - "2567"
+      - "2567:2567"
     depends_on:
       - redis
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"

@@ -36,7 +36,9 @@ As animações respeitam a duração de cada quadro, a direção (forward, rever
 1. Salve o `.aseprite` em `content/sprites/src/`, por exemplo `hero.aseprite`.
 2. Crie **tags** para cada animação (`idle`, `walk`, `attack`...).
 3. Exporte de um destes jeitos:
-   - **Automático:** rode `pnpm assets:sprites`. Precisa do executável do [Aseprite](https://www.aseprite.org/) ou do [LibreSprite](https://libresprite.github.io/), que é gratuito, no PATH. Se não estiver no PATH, use `ASEPRITE="C:/Program Files/Aseprite/Aseprite.exe" pnpm assets:sprites`.
+   - **Automático:** rode `pnpm assets:sprites`. Precisa do executável do [Aseprite](https://www.aseprite.org/) ou do [LibreSprite](https://libresprite.github.io/), que é gratuito, no PATH. Se não estiver no PATH, informe o caminho na variável `ASEPRITE`:
+     - Windows (PowerShell): `$env:ASEPRITE="C:/Program Files/Aseprite/Aseprite.exe"; pnpm assets:sprites`
+     - macOS/Linux: `ASEPRITE=/caminho/do/aseprite pnpm assets:sprites`
    - **Manual no Aseprite:** *File → Export Sprite Sheet*. Na aba Output, marque **JSON Data** com formato **Array**, em *Item Filename* escreva `{frame}` e marque **Tags**. Salve como `content/sprites/hero.png` + `hero.json`.
 4. Rode `pnpm content:validate`.
 
