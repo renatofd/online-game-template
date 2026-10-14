@@ -84,13 +84,15 @@ describe("ArenaRoom", () => {
     const input = client.input<MoveInput>({ mode: "reliable" });
     input.data.moveX = 1;
     input.data.moveY = 0;
-    for (let i = 0; i < 30; i++) input.send();
+    for (let i = 0; i < 40; i++) input.send();
     await room.waitForNextMessage();
-    await room.waitForNextTimestep();
+    for (let t = 0; t < 10; t++) await room.waitForNextTimestep();
 
-    const steps = (player.x - startX) / (PLAYER_SPEED * TICK_DT);
+    // Without a limit all 40 would apply at once. With it: a burst of 4, then ~1 per tick
+    // (+1 tick of slack for the tick that may run before the first wait resolves).
+    const steps = Math.round((player.x - startX) / (PLAYER_SPEED * TICK_DT));
     expect(steps).toBeGreaterThanOrEqual(1);
-    expect(steps).toBeLessThanOrEqual(4.01); // InputBudget's burst
+    expect(steps).toBeLessThanOrEqual(4 + 10 + 1);
   });
 
   it("stops a player whose inputs stop arriving", async () => {
@@ -99,13 +101,16 @@ describe("ArenaRoom", () => {
     const player = room.state.players.get(client.sessionId);
     if (!player) throw new Error("player not created");
 
+    const startX = player.x;
+
     const input = client.input<MoveInput>({ mode: "reliable" });
     input.data.moveX = 1;
     input.send();
-    await room.waitForNextMessage();
+    // The input may land on any tick: wait until it moved the player, not for a specific tick.
+    await vi.waitFor(() => expect(player.x).toBeGreaterThan(startX));
     await room.waitForNextTimestep();
-    expect(player.vx).not.toBe(0);
     const x = player.x;
+    expect(player.vx).toBe(0);
 
     await room.waitForNextTimestep();
     await room.waitForNextTimestep();
