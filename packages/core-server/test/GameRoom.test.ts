@@ -120,6 +120,14 @@ describe("GameRoom", () => {
     expect(rejected).toBe(6);
   });
 
+  it("does not hold the seat of a client kicked for flooding", async () => {
+    const room = await colyseus.createRoom<object>("test", {});
+    const flooder = await colyseus.connectTo(room, { v });
+    for (let i = 0; i < 300; i++) flooder.send("anything", i);
+    await vi.waitFor(() => expect(room.clients.length).toBe(0));
+    await expect(colyseus.sdk.reconnect(flooder.reconnectionToken)).rejects.toThrow();
+  });
+
   it("ignores chat when the room disables it", async () => {
     const room = await colyseus.createRoom<object>("noChat", {});
     const a = await colyseus.connectTo(room, { v });
@@ -150,5 +158,10 @@ describe("isOriginAllowed", () => {
     expect(isOriginAllowed("https://my.game/", list)).toBe(true);
     expect(isOriginAllowed("https://evil.example", list)).toBe(false);
     expect(isOriginAllowed(null, list)).toBe(false);
+    expect(isOriginAllowed("null", list)).toBe(false);
+  });
+  it("compares origins the way browsers send them", () => {
+    expect(isOriginAllowed("https://my.game", ["https://my.game"])).toBe(true);
+    expect(isOriginAllowed("https://MY.game:443", ["https://my.game"])).toBe(true);
   });
 });

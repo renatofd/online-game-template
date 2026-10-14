@@ -1,7 +1,15 @@
 import { boot, type ColyseusTestServer } from "@colyseus/testing";
 import { createGameServer } from "@core/server";
 import { CORE_PROTOCOL_VERSION } from "@core/shared";
-import { type ArenaState, type MoveInput, PLAYER_SPEED, PROTOCOL_VERSION, ROOM_ARENA, TICK_DT } from "@game/shared";
+import {
+  type ArenaState,
+  type MoveInput,
+  PLAYER_SPEED,
+  Player,
+  PROTOCOL_VERSION,
+  ROOM_ARENA,
+  TICK_DT,
+} from "@game/shared";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { rooms } from "../src";
 
@@ -66,6 +74,50 @@ describe("ArenaRoom", () => {
     expect(player.x).toBeCloseTo(startX + PLAYER_SPEED * TICK_DT);
   });
 
+  it("applies at most a few inputs per tick, so sending faster doesn't move faster", async () => {
+    const room = await colyseus.createRoom<ArenaState>(ROOM_ARENA, {});
+    const client = await colyseus.connectTo(room, { v });
+    const player = room.state.players.get(client.sessionId);
+    if (!player) throw new Error("player not created");
+    const startX = player.x;
+
+    const input = client.input<MoveInput>({ mode: "reliable" });
+    input.data.moveX = 1;
+    input.data.moveY = 0;
+    for (let i = 0; i < 30; i++) input.send();
+    await room.waitForNextMessage();
+    await room.waitForNextTimestep();
+
+    const steps = (player.x - startX) / (PLAYER_SPEED * TICK_DT);
+    expect(steps).toBeGreaterThanOrEqual(1);
+    expect(steps).toBeLessThanOrEqual(4.01); // InputBudget's burst
+  });
+
+  it("stops a player whose inputs stop arriving", async () => {
+    const room = await colyseus.createRoom<ArenaState>(ROOM_ARENA, {});
+    const client = await colyseus.connectTo(room, { v });
+    const player = room.state.players.get(client.sessionId);
+    if (!player) throw new Error("player not created");
+
+    const input = client.input<MoveInput>({ mode: "reliable" });
+    input.data.moveX = 1;
+    input.send();
+    await room.waitForNextMessage();
+    await room.waitForNextTimestep();
+    expect(player.vx).not.toBe(0);
+    const x = player.x;
+
+    await room.waitForNextTimestep();
+    await room.waitForNextTimestep();
+    expect(player.vx).toBe(0);
+    expect(player.x).toBe(x);
+  });
+
+  it("ignores a map chosen by the client", async () => {
+    const room = await colyseus.createRoom<ArenaState>(ROOM_ARENA, { mapId: "something-else" });
+    expect(room.state.mapId).toBe("arena");
+  });
+
   it("only sends players inside the area of interest", async () => {
     const room = await colyseus.createRoom<ArenaState>(ROOM_ARENA, {});
     // The first two spawns of the arena map are ~590 px apart: beyond INTEREST_RADIUS.
@@ -84,6 +136,17 @@ describe("ArenaRoom", () => {
     pb.y = pa.y;
     await vi.waitFor(() => expect(a.state.players.has(b.sessionId)).toBe(true), { timeout: 2000 });
     expect(b.state.players.get(a.sessionId)?.name).toBe("A");
+  });
+
+  it("sends a player again after it is replaced under the same id", async () => {
+    const room = await colyseus.createRoom<ArenaState>(ROOM_ARENA, {});
+    const a = await colyseus.connectTo(room, { v, name: "A" });
+    await vi.waitFor(() => expect(a.state.players.get(a.sessionId)?.name).toBe("A"));
+
+    const old = room.state.players.get(a.sessionId);
+    if (!old) throw new Error("player missing");
+    room.state.players.set(a.sessionId, new Player({ name: "A2", x: old.x, y: old.y, vx: 0, vy: 0 }));
+    await vi.waitFor(() => expect(a.state.players.get(a.sessionId)?.name).toBe("A2"), { timeout: 2000 });
   });
 
   it("lists every player in the roster and scores walking", async () => {

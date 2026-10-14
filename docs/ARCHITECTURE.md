@@ -98,13 +98,13 @@ Cliente (60+ fps)                                   Servidor (tick fixo de 30 Hz
 InputManager (teclado+gamepad+toque) → move {x,y}
 GameScene: 1 input por tick (predict.tick)     ──► buffer de inputs por jogador (defineInput)
   reconciler aplica stepPlayer na hora                sanitize corta valores fora do intervalo
-                                                       setFixedTimestep → stepPlayer(...)
+                                                       startSimulation → stepPlayer(...)
 Estado (binário, delta) ◄────────────────────────── ArenaState { mapId, players }
   próprio jogador: rollback + replay se divergir
   outros: interpolação
 ```
 
-Entrada na sala: o cliente envia `{ v: {core, game}, name, locale }`. O `GameRoom.onAuth` valida as versões, depois `authenticate()` define a identidade (convidado por padrão; GamePush no futuro). O cliente só começa a partida depois que o primeiro estado completo chega.
+Entrada na sala: o cliente envia `{ v: {core, game}, name, locale, auth? }`. O `GameRoom.onAuth` valida as versões, depois `authenticate()` define a identidade: conta verificada quando há `auth` e um provedor registrado (GamePush), ou convidado. O cliente só começa a partida depois que o primeiro estado completo chega.
 
 Queda de conexão: o SDK tenta reconectar sozinho e a tela mostra "Reconectando…". O servidor guarda a vaga por 20 s. Se não voltar, aparece "Você foi desconectado".
 
@@ -118,7 +118,7 @@ Queda de conexão: o SDK tenta reconectar sozinho e a tela mostra "Reconectando�
 | Texto novo | `game/client/src/messages.ts` (14 idiomas; o teste acusa os que faltam) |
 | Fim de partida | `ctx.endMatch({ title, rows })` na cena |
 | HUD do jogo (placar) | Elementos DOM em `ctx.hud`, estilos em `game/client/src/styles.css` |
-| Novo mapa | `content/maps` + `game/client/src/assets.ts` (ver `content/README.md`) |
+| Novo mapa | `content/maps` (e o tileset em `content/tilesets`); carregados sozinhos (ver `content/README.md`) |
 | Sprite animado novo | `content/sprites/<nome>.png+json` (Aseprite) → `sprite.play(animKey("<nome>", "<tag>"))` |
 | Som ou música nova | Arquivo em `content/audio/sfx` ou `content/audio/music` → `ctx.audio.playSfx("<nome>")` |
 | Placar | `ctx.ui.setScores([{ id, name, score }], meuId)`; os dados vêm de um campo do estado que não passa pela área de interesse (veja `roster`) |

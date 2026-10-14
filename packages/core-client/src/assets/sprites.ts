@@ -29,7 +29,7 @@ export function discoverSprites(pngs: Record<string, string>, jsons: Record<stri
     path
       .split("/")
       .pop()
-      ?.replace(/\.(png|json)$/, "") ?? path;
+      ?.replace(/\.(png|json)$/i, "") ?? path;
   const data = new Map(Object.entries(jsons).map(([path, url]) => [base(path), url]));
   const sprites: SpriteAsset[] = [];
   for (const [path, image] of Object.entries(pngs)) {

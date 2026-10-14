@@ -27,6 +27,7 @@ O jogo de exemplo ("Arena Demo") está todo em `game/` e `content/`. Ele serve d
 git clone https://github.com/renatofd/online-game-template.git space-blobs
 cd space-blobs
 git remote rename origin template
+git config remote.template.tagOpt --no-tags   # as tags do template não se misturam às do jogo
 git remote add origin https://github.com/meu-usuario/space-blobs.git
 
 # 3. Dê nome ao jogo
@@ -34,7 +35,8 @@ pnpm install
 pnpm init-game --name "Space Blobs"
 
 # 4. Primeiro commit e push
-git add -A && git commit -m "chore: start Space Blobs from template"
+git add -A
+git commit -m "chore: start Space Blobs from template"
 git push -u origin main
 ```
 
@@ -48,13 +50,13 @@ git push -u origin main
 4. Troque cena, render e assets em `game/client`. Os textos do jogo ficam em `game/client/src/messages.ts`, nos 14 idiomas.
 5. Troque a arte e os mapas em `content/` (veja `content/README.md`).
 6. Ajuste `game/client/src/bot.ts` para os bots mandarem os inputs do seu jogo.
-7. `pnpm check` antes de cada push (é o que a CI roda).
+7. `pnpm check` antes de cada push. A CI roda isso, mais o build e os testes e2e.
 
 ## Receber atualizações do template
 
 ```bash
 git fetch template
-git merge template/main      # ou uma versão: git merge v0.3.0
+git merge template/main
 pnpm install
 pnpm check
 ```
@@ -68,7 +70,7 @@ pnpm check
 Precisa de algo novo no núcleo (um recurso de rede, um tipo de tela, uma plataforma)?
 
 1. Faça a mudança **no repositório do template**, com testes, e publique uma versão no `CHANGELOG.md`.
-2. Nos jogos, rode `git fetch template && git merge template/main`.
+2. Nos jogos, rode `git fetch template` e depois `git merge template/main`.
 
 Se for urgente, dá para mudar no jogo e depois levar para o template com `git cherry-pick`. Só não deixe a mudança morar apenas no jogo, senão ela vira conflito em toda atualização.
 

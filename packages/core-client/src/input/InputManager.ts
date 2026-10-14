@@ -4,9 +4,14 @@ import { KeyboardSource } from "./KeyboardSource";
 import { TouchControls } from "./TouchControls";
 import type { ActionBinding, Vec2 } from "./types";
 
-/** True on phones/tablets (coarse primary pointer or any touch points). */
+/**
+ * True on phones/tablets: the primary pointer is coarse. Touchscreen laptops report a
+ * fine primary pointer, so they keep the desktop layout (touch controls still appear
+ * after the first touch). Without matchMedia, any touch point counts.
+ */
 export function isTouchDevice(): boolean {
-  return window.matchMedia?.("(pointer: coarse)").matches || navigator.maxTouchPoints > 0;
+  if (typeof window.matchMedia === "function") return window.matchMedia("(pointer: coarse)").matches;
+  return navigator.maxTouchPoints > 0;
 }
 
 /**

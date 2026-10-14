@@ -28,3 +28,12 @@ export function h<K extends keyof HTMLElementTagNameMap>(
   }
   return node;
 }
+
+const TEXT_INPUT_TYPES = new Set(["text", "search", "email", "url", "tel", "password", "number"]);
+
+/** True for elements that take typed text (where Esc, Enter and Tab belong to the field, not the game). */
+export function isTextField(target: EventTarget | null): boolean {
+  if (target instanceof HTMLTextAreaElement) return true;
+  if (target instanceof HTMLInputElement) return TEXT_INPUT_TYPES.has(target.type);
+  return target instanceof HTMLElement && target.isContentEditable;
+}

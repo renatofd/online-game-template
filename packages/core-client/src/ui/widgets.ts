@@ -62,6 +62,8 @@ export class Scoreboard {
 
   hide() {
     this.rows = [];
+    this.selfId = undefined;
+    this.el.replaceChildren();
     this.el.hidden = true;
   }
 
@@ -102,6 +104,14 @@ export class PlayerList {
 
   toggle() {
     this.setOpen(!this.isOpen);
+  }
+
+  /** Forgets the previous match's players and closes the list. */
+  clear() {
+    this.rows = [];
+    this.selfId = undefined;
+    this.el.replaceChildren();
+    this.setOpen(false);
   }
 
   private render() {

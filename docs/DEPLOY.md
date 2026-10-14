@@ -32,7 +32,7 @@ cd apps/server && NODE_ENV=production pm2 start ecosystem.config.cjs
 
 O build fica em `apps/server/build/index.js`. Os mapas precisam estar acessíveis (`MAPS_DIR`, padrão `<repo>/content/maps`).
 
-> **Colyseus Cloud:** usa o `ecosystem.config.cjs` e o comando de build do projeto. Como este repositório é um monorepo, no primeiro deploy configure no painel o diretório `apps/server` e o build `pnpm install && pnpm build:server`, e confirme que `content/maps` vai junto (ou defina `MAPS_DIR`). Esse fluxo ainda não foi testado num deploy real.
+> **Colyseus Cloud:** usa o `ecosystem.config.cjs` e o comando de build do projeto. Como este repositório é um monorepo, no primeiro deploy configure no painel o diretório `apps/server` e o build `pnpm install && pnpm --filter @app/server build`, e confirme que `content/maps` vai junto (ou defina `MAPS_DIR`). Esse fluxo ainda não foi testado num deploy real.
 
 ### Variáveis de ambiente do servidor
 
@@ -46,6 +46,7 @@ O servidor **valida tudo ao iniciar** e para com uma mensagem clara se algo esti
 | `GAMEPUSH_PROJECT_ID` | — | ID do projeto no GamePush |
 | `GAMEPUSH_API_SECRET` | — | Chave da Server API do GamePush. **Segredo: só no servidor.** Com as duas definidas, jogadores do GamePush são verificados ao entrar |
 | `REDIS_URL` | — | `redis://...`. Liga a escala horizontal (vários processos ou máquinas compartilhando salas) |
+| `PUBLIC_ADDRESS` | — | Endereço pelo qual os jogadores chegam **neste** processo, sem protocolo: `eu-1.meu-jogo.example` ou `meu-jogo.example/{port}` (`{port}` vira a porta do processo). Só é preciso com vários processos (veja a seção 4) |
 | `MONITOR_PASSWORD` | — | Em produção, libera `/monitor` com usuário `admin` e esta senha |
 | `LOG_LEVEL` | `info` (prod) | `debug`, `info`, `warn` ou `error` |
 | `MAX_PAYLOAD_BYTES` | `16384` | Tamanho máximo de uma mensagem WebSocket |
@@ -78,7 +79,7 @@ Variáveis lidas **no build** (arquivo `apps/client/.env.local`, que não vai pa
 | `VITE_PLATFORM` | `gamepush` | `web` (itch.io, site próprio) ou `gamepush` |
 | `VITE_GAMEPUSH_PROJECT_ID` | `31385` | ID do projeto GamePush |
 | `VITE_GAMEPUSH_PUBLIC_TOKEN` | `bSDL…` | Token **público** do GamePush (feito para ficar no cliente) |
-| `VITE_BUILD_ID` | `v0.3.0` | Mostrado no rodapé do menu |
+| `VITE_BUILD_ID` | `v1.0.0` | Mostrado no rodapé do menu |
 
 > Faça um build para cada destino: com `VITE_PLATFORM=gamepush` para o GamePush e `VITE_PLATFORM=web` para o itch.io.
 
@@ -97,9 +98,16 @@ Variáveis lidas **no build** (arquivo `apps/client/.env.local`, que não vai pa
 ## 3. Release pelo GitHub
 
 1. Em **Settings → Secrets and variables → Actions**, configure as variáveis `VITE_SERVER_URL`, `VITE_PLATFORM`, `VITE_GAMEPUSH_PROJECT_ID` e `VITE_GAMEPUSH_PUBLIC_TOKEN` e, se quiser, `ITCH_TARGET` e o segredo `BUTLER_API_KEY`.
-2. Crie uma tag: `git tag v0.3.0 && git push origin v0.3.0`.
-3. O workflow publica a imagem do servidor no GHCR, anexa o `.zip` do cliente ao release e, se configurado, envia o cliente ao itch.io.
+2. Crie um release em **Releases → Draft a new release**, com uma tag nova, por exemplo `v1.0.0` (ou pelo terminal: `git tag v1.0.0 && git push origin v1.0.0`).
+3. O workflow publica a imagem do servidor no GHCR, anexa o `.zip` do cliente ao release e, se configurado, envia o cliente ao itch.io. Sem `VITE_SERVER_URL` o workflow avisa e **não** envia ao itch.io, porque esse cliente não acharia o servidor.
 
 ## 4. Escala horizontal
 
-Com `REDIS_URL`, vários processos (ou máquinas) compartilham matchmaking e presença. Com PM2, `ecosystem.config.cjs` sobe um processo por núcleo quando `REDIS_URL` está definido. Na frente dos processos é preciso um load balancer com suporte a WebSocket. Com mais de uma máquina, cada processo precisa de um endereço público próprio; veja a documentação do Colyseus sobre *scalability*. O código já está pronto, mas essa configuração ainda não foi testada com Redis real.
+Com `REDIS_URL`, vários processos (ou máquinas) compartilham matchmaking e presença. Cada sala vive em **um** processo, e o jogador precisa se conectar justamente nele. Por isso:
+
+- Cada processo precisa de um **endereço público próprio** em `PUBLIC_ADDRESS`. Exemplos: uma máquina por subdomínio (`eu-1.meu-jogo.example`), ou um proxy (nginx, Caddy) que repassa `meu-jogo.example/2568` para a porta 2568, com `PUBLIC_ADDRESS=meu-jogo.example/{port}`.
+- O matchmaking (as requisições HTTP) pode passar por qualquer processo, então um load balancer comum serve para ele.
+- Com PM2, `ecosystem.config.cjs` sobe um processo por núcleo quando `REDIS_URL` está definido (no ambiente ou em `apps/server/.env`). Cada processo escuta em `PORT` + o número dele: 2567, 2568, 2569...
+- No **Colyseus Cloud** nada disso é preciso: ele configura Redis e endereços sozinho. Não defina `REDIS_URL` nem `PUBLIC_ADDRESS` lá.
+
+Veja também a documentação do Colyseus sobre *scalability*. O código está pronto, mas essa configuração ainda não foi testada com Redis real.

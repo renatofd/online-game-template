@@ -10,7 +10,7 @@ const cache = new Map<string, GameMap>();
  * The client renders the very same file, so collision always matches the visuals.
  */
 export function loadMap(mapId: string, options: ValidateOptions = {}): GameMap {
-  if (!/^[a-z0-9_-]+$/i.test(mapId)) throw new Error(`invalid map id "${mapId}"`);
+  if (typeof mapId !== "string" || !/^[a-z0-9_-]+$/i.test(mapId)) throw new Error(`invalid map id "${mapId}"`);
   let map = cache.get(mapId);
   if (!map) {
     const raw = JSON.parse(readFileSync(join(env.mapsDir, `${mapId}.tmj`), "utf8")) as TiledMap;

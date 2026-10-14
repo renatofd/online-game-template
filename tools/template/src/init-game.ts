@@ -14,10 +14,22 @@ import { parseArgs } from "node:util";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
-const { values } = parseArgs({
-  options: { name: { type: "string" }, id: { type: "string" } },
-  args: process.argv.slice(2).filter((a) => a !== "--"),
-});
+const USAGE = 'Usage: pnpm init-game --name "My Game" [--id my-game]';
+
+let values: { name?: string; id?: string; help?: boolean };
+try {
+  ({ values } = parseArgs({
+    options: { name: { type: "string" }, id: { type: "string" }, help: { type: "boolean", short: "h" } },
+    args: process.argv.slice(2).filter((a) => a !== "--"),
+  }));
+} catch (err) {
+  console.error(`${(err as Error).message}\n${USAGE}`);
+  process.exit(1);
+}
+if (values.help) {
+  console.log(USAGE);
+  process.exit(0);
+}
 
 const name = values.name?.trim();
 const id = (values.id ?? name ?? "")
@@ -27,14 +39,19 @@ const id = (values.id ?? name ?? "")
   .replace(/[^a-z0-9]+/g, "-")
   .replace(/^-|-$/g, "");
 
-if (!name || !id) {
-  console.error('Usage: pnpm init-game --name "My Game" [--id my-game]');
+if (!name) {
+  console.error(USAGE);
+  process.exit(1);
+}
+if (!id) {
+  console.error(`Could not make an id from "${name}" (it needs latin letters or digits). Pass one: --id my-game`);
   process.exit(1);
 }
 
 const GAME_MODULE = "game/client/src/index.ts";
 const current = readFileSync(resolve(ROOT, GAME_MODULE), "utf8");
-const currentTitle = /title: "([^"]*)"/.exec(current)?.[1];
+// The title is written with JSON.stringify, so it may contain escaped quotes.
+const currentTitle = /title: ("(?:[^"\\]|\\.)*")/.exec(current)?.[1];
 const currentId = /\bid: "([^"]*)"/.exec(current)?.[1];
 if (!currentTitle || !currentId) {
   console.error(`Could not find title/id in ${GAME_MODULE}.`);
@@ -52,11 +69,13 @@ function edit(path: string, fn: (text: string) => string) {
 }
 
 edit(GAME_MODULE, (s) =>
-  s.replace(`title: "${currentTitle}"`, `title: ${JSON.stringify(name)}`).replace(`id: "${currentId}"`, `id: "${id}"`),
+  s
+    .replace(`title: ${currentTitle}`, () => `title: ${JSON.stringify(name)}`)
+    .replace(`id: "${currentId}"`, () => `id: "${id}"`),
 );
-edit("apps/client/index.html", (s) => s.replace(/<title>[^<]*<\/title>/, `<title>${escapeHtml(name)}</title>`));
-edit("package.json", (s) => s.replace(/"name": "[^"]*"/, `"name": "${id}"`));
-edit("README.md", (s) => s.replace(/^# .*$/m, `# ${name}`));
+edit("apps/client/index.html", (s) => s.replace(/<title>[^<]*<\/title>/, () => `<title>${escapeHtml(name)}</title>`));
+edit("package.json", (s) => s.replace(/"name": "[^"]*"/, () => `"name": "${id}"`));
+edit("README.md", (s) => s.replace(/^# .*$/m, () => `# ${name}`));
 
 console.log(`\n✓ Project is now "${name}" (${id}). Next steps: docs/TEMPLATE.md → "Começar um jogo novo".`);
 

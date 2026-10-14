@@ -1,6 +1,7 @@
 /**
  * Zips apps/client/dist into release/<id>-client-<version>.zip with index.html
  * at the root, which is what GamePush and itch.io (HTML5 game) expect.
+ * <version> is RELEASE_VERSION (set by the release workflow from the tag), else package.json.
  *
  *   pnpm build:client && pnpm pack:client
  */
@@ -33,7 +34,8 @@ if (!files["index.html"]) {
 }
 
 const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { name: string; version: string };
-const out = join(ROOT, "release", `${pkg.name}-client-${pkg.version}.zip`);
+const version = (process.env.RELEASE_VERSION || pkg.version).replace(/^v/, "");
+const out = join(ROOT, "release", `${pkg.name}-client-${version}.zip`);
 mkdirSync(dirname(out), { recursive: true });
 writeFileSync(out, zipSync(files, { level: 9 }));
 

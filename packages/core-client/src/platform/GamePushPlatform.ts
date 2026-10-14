@@ -1,4 +1,5 @@
 import type { PlatformAuthPayload } from "@core/shared";
+import { withTimeout } from "../withTimeout";
 import type { Platform, PlatformAds } from "./Platform";
 import { WebPlatform } from "./WebPlatform";
 
@@ -47,6 +48,10 @@ const SDK_URLS = [
 
 /** How long to wait for the SDK (all mirrors) before continuing as plain web. */
 const SDK_TIMEOUT_MS = 15_000;
+/** How long one mirror may take to deliver the script before trying the next one. */
+const MIRROR_TIMEOUT_MS = 5_000;
+/** How long to wait for the player's first sync before continuing without account data. */
+const PLAYER_READY_TIMEOUT_MS = 5_000;
 
 export interface GamePushConfig {
   projectId: string;
@@ -89,7 +94,10 @@ export class GamePushPlatform implements Platform {
     if (!this.gp) return;
 
     // Player data (name, auth) is only valid after the first sync with GamePush.
-    await this.gp.player?.ready;
+    // A failed or stuck sync must not block the game: continue as a guest.
+    await withTimeout(Promise.resolve(this.gp.player?.ready), PLAYER_READY_TIMEOUT_MS).catch((err: unknown) => {
+      console.warn("[platform] GamePush player sync failed; continuing without account data.", err);
+    });
     this.gp.on?.("pause", () => this.emitPause(true));
     this.gp.on?.("resume", () => this.emitPause(false));
     void this.gp.gameStart?.();
@@ -174,9 +182,21 @@ export function loadGamePushSdk(config: GamePushConfig | undefined): Promise<Gam
       const script = document.createElement("script");
       script.src = `${url}?${query}`;
       script.async = true;
-      script.onerror = () => {
+      // A mirror that neither loads nor fails (stalled connection) also moves on to the next one.
+      let done = false;
+      const next = () => {
+        if (done) return;
+        done = true;
+        clearTimeout(mirrorTimer);
         script.remove();
         tryMirror(index + 1);
+      };
+      const mirrorTimer = setTimeout(next, MIRROR_TIMEOUT_MS);
+      script.onerror = next;
+      script.onload = () => {
+        // Script delivered; the overall timeout now covers the SDK's own init (onGPInit).
+        done = true;
+        clearTimeout(mirrorTimer);
       };
       document.head.append(script);
     };

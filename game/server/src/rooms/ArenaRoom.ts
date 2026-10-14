@@ -1,6 +1,6 @@
 import type { Client, CloseCode, StepContext } from "@colyseus/core";
 import type { GameMap } from "@core/maps";
-import { GameRoom, InterestManager, loadMap } from "@core/server";
+import { GameRoom, InputBudget, InterestManager, loadMap } from "@core/server";
 import {
   type ArenaJoinOptions,
   ArenaState,
@@ -18,6 +18,7 @@ import {
 } from "@game/shared";
 
 export interface ArenaCreateOptions {
+  /** Set by the server in defineRoom (game/server/src/index.ts), never by clients. */
   mapId?: string;
 }
 
@@ -26,7 +27,8 @@ export interface ArenaCreateOptions {
  * Replace with your own game. In a future MMO this same shape becomes one zone.
  *
  * Authoritative: clients only send MoveInput frames; the server runs the shared
- * `stepPlayer` once per received input on a fixed timestep and syncs the result.
+ * `stepPlayer` once per received input on a fixed timestep (at most about one
+ * input per tick per player, see InputBudget) and syncs the result.
  * Version checks, auth, reconnection and flood protection come from GameRoom.
  */
 export class ArenaRoom extends GameRoom<{ state: ArenaState; input: MoveInput }> {
@@ -48,6 +50,8 @@ export class ArenaRoom extends GameRoom<{ state: ArenaState; input: MoveInput }>
   private tick = 0;
   /** Seconds each player has walked since their last point. */
   private walked = new Map<string, number>();
+  /** At most ~1 input per tick per player, so sending inputs faster doesn't move faster. */
+  private inputBudget = new InputBudget();
   /** Area of interest: each client only receives nearby players. */
   private interest = new InterestManager<Player>({ radius: INTEREST_RADIUS });
 
@@ -57,7 +61,7 @@ export class ArenaRoom extends GameRoom<{ state: ArenaState; input: MoveInput }>
   };
 
   override onCreate(options: ArenaCreateOptions = {}) {
-    const mapId = options.mapId ?? "arena";
+    const mapId = typeof options.mapId === "string" ? options.mapId : "arena";
     this.map = loadMap(mapId, { tileSize: TILE_SIZE });
     this.state.mapId = mapId;
     this.startSimulation((ctx) => this.step(ctx), TICK_RATE);
@@ -82,6 +86,7 @@ export class ArenaRoom extends GameRoom<{ state: ArenaState; input: MoveInput }>
     this.state.players.delete(client.sessionId);
     this.state.roster.delete(client.sessionId);
     this.walked.delete(client.sessionId);
+    this.inputBudget.delete(client.sessionId);
   }
 
   /**
@@ -92,8 +97,17 @@ export class ArenaRoom extends GameRoom<{ state: ArenaState; input: MoveInput }>
     for (const [sessionId, player] of this.state.players) {
       const channel = this.inputs.get(sessionId);
       if (!channel) continue;
-      for (const input of channel) stepPlayer(player, input, ctx.dt, this.map.collision);
-      if (player.vx !== 0 || player.vy !== 0) this.awardWalking(sessionId, ctx.dt);
+      const inputs = channel.take(this.inputBudget.refill(sessionId));
+      this.inputBudget.spend(sessionId, inputs.length);
+      for (const input of inputs) {
+        stepPlayer(player, input, ctx.dt, this.map.collision);
+        if (player.vx !== 0 || player.vy !== 0) this.awardWalking(sessionId, ctx.dt);
+      }
+      // No input this tick (tab hidden, connection dropped): the player stands still.
+      if (inputs.length === 0) {
+        player.vx = 0;
+        player.vy = 0;
+      }
     }
     if (++this.tick % INTEREST_EVERY_TICKS === 0) this.updateInterest();
   }

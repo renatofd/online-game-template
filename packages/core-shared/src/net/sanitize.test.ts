@@ -28,6 +28,18 @@ describe("sanitizeName", () => {
     expect(sanitizeName("   ")).toBe("Player");
     expect(sanitizeName(42, "Guest")).toBe("Guest");
   });
+
+  it("treats invisible-only names as empty", () => {
+    expect(sanitizeName("\u3164\u3164")).toBe("Player");
+    expect(sanitizeName("\u2800")).toBe("Player");
+    expect(sanitizeName("\u200D")).toBe("Player");
+  });
+
+  it("bounds huge input and stacked combining marks", () => {
+    const zalgo = `a${"\u0301".repeat(5000)}`;
+    expect(sanitizeName(zalgo).length).toBeLessThanOrEqual(16 * 16);
+    expect(sanitizeName("x".repeat(1_000_000))).toBe("x".repeat(16));
+  });
 });
 
 describe("sanitizeChat", () => {

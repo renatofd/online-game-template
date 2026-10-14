@@ -13,6 +13,12 @@ export interface ServerEnv {
   monitorPassword?: string;
   /** Redis connection URL. When set, rooms/presence are shared across processes. */
   redisUrl?: string;
+  /**
+   * Address clients use to reach THIS process directly (host[:port][/path], no protocol),
+   * e.g. "eu-1.my.game" or "my.game/2568". Needed when several processes share rooms
+   * through Redis: each room lives in one process and players must connect to it.
+   */
+  publicAddress?: string;
   /** GamePush Server API credentials. When set, GamePush players are verified server-side. */
   gamepush?: { projectId: string; apiSecret: string };
   /** Minimum log level. */
@@ -34,17 +40,20 @@ export function parseEnv(source: NodeJS.ProcessEnv = process.env): ServerEnv {
   const logLevel = (source.LOG_LEVEL ?? (isProduction ? "info" : "debug")) as ServerEnv["logLevel"];
   if (!LOG_LEVELS.includes(logLevel)) errors.push(`LOG_LEVEL must be one of ${LOG_LEVELS.join(", ")}`);
 
-  const allowedOrigins = (source.ALLOWED_ORIGINS ?? "")
-    .split(",")
-    .map((o) => o.trim().replace(/\/$/, ""))
-    .filter(Boolean);
-  for (const origin of allowedOrigins) {
-    if (!/^https?:\/\/[^/]+$/.test(origin))
-      errors.push(`ALLOWED_ORIGINS entry "${origin}" must look like https://host`);
+  const allowedOrigins: string[] = [];
+  for (const entry of (source.ALLOWED_ORIGINS ?? "").split(",").map((o) => o.trim().replace(/\/$/, ""))) {
+    if (!entry) continue;
+    if (!/^https?:\/\/[^/]+$/.test(entry)) errors.push(`ALLOWED_ORIGINS entry "${entry}" must look like https://host`);
+    else allowedOrigins.push(normalizeOrigin(entry));
   }
 
   const redisUrl = source.REDIS_URL || undefined;
   if (redisUrl && !/^rediss?:\/\//.test(redisUrl)) errors.push("REDIS_URL must start with redis:// or rediss://");
+
+  const port = Number(source.PORT || 2567) + Number(source.NODE_APP_INSTANCE || 0);
+  const publicAddress = source.PUBLIC_ADDRESS?.trim().replaceAll("{port}", String(port)) || undefined;
+  if (publicAddress && /^[a-z]+:\/\//i.test(publicAddress))
+    errors.push("PUBLIC_ADDRESS must not include the protocol (use host[:port][/path])");
 
   let gamepush: ServerEnv["gamepush"];
   const gpProject = source.GAMEPUSH_PROJECT_ID;
@@ -65,10 +74,23 @@ export function parseEnv(source: NodeJS.ProcessEnv = process.env): ServerEnv {
     allowedOrigins,
     monitorPassword: source.MONITOR_PASSWORD || undefined,
     redisUrl,
+    publicAddress,
     gamepush,
     logLevel,
     maxPayloadBytes,
   };
+}
+
+/**
+ * Origin in the form browsers send it: lowercase host, no default port
+ * ("https://My.Game:443" → "https://my.game").
+ */
+export function normalizeOrigin(origin: string): string {
+  try {
+    return new URL(origin).origin;
+  } catch {
+    return origin;
+  }
 }
 
 /** Walks up from the working directory to find <repo>/content/maps. */

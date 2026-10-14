@@ -2,8 +2,9 @@
 **/dist
 **/build
 **/.env
-**/.env.local
+**/.env.*
 .git
-coverage
-test-results
-playwright-report
+**/coverage
+**/test-results
+**/playwright-report
+/release

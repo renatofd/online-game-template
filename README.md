@@ -53,12 +53,12 @@ Abra http://localhost:3000 em **duas ou mais abas** para ver os jogadores sincro
 | `pnpm lint` / `pnpm lint:fix` | Revisão automática de código e formatação (Biome) |
 | `pnpm content:validate` | Confere mapas, sprites e áudio |
 | `pnpm assets:sprites` | Exporta os `.aseprite` de `content/sprites/src/` (precisa do Aseprite/LibreSprite) |
-| `pnpm check` | Tudo acima de uma vez (o mesmo que a CI roda) |
+| `pnpm check` | Lint, tipos, testes e validação de conteúdo de uma vez. A CI roda isso, mais o build e o e2e |
 | `pnpm build` | Build de produção do cliente (`apps/client/dist`) e do servidor (`apps/server/build`) |
 | `pnpm pack:client` | Gera o `.zip` do cliente para GamePush/itch.io (depois do build) |
 | `pnpm e2e` | Testes ponta a ponta com navegadores reais (Playwright) |
 | `pnpm loadtest` | Bots para teste de carga |
-| `pnpm assets:placeholder` | Regera a arte e o mapa provisórios (sobrescreve!) |
+| `pnpm assets:placeholder --force` | Volta a arte, os sons e o mapa provisórios (sobrescreve os arquivos em `content/`) |
 | `pnpm init-game --name "Meu Jogo"` | Renomeia o projeto ao criar um jogo novo |
 
 ## Estrutura

@@ -1,6 +1,7 @@
 import { ColyseusSDK, type Room } from "@colyseus/sdk";
 import { CORE_PROTOCOL_VERSION, CoreErrorCode, type CoreJoinOptions } from "@core/shared";
 import type { SchemaClass } from "../GameModule";
+import { withTimeout } from "../withTimeout";
 
 /**
  * Game server URL:
@@ -37,6 +38,8 @@ export interface JoinRequest<State> {
   options: Omit<CoreJoinOptions, "v"> & Record<string, unknown>;
 }
 
+/** How long the matchmaking request + room connection may take. */
+const JOIN_TIMEOUT_MS = 15_000;
 /** How long to wait for the first full state after joining. */
 const FIRST_STATE_TIMEOUT_MS = 10_000;
 
@@ -48,23 +51,38 @@ const FIRST_STATE_TIMEOUT_MS = 10_000;
 export async function joinRoom<State>(request: JoinRequest<State>): Promise<Room<unknown, State>> {
   const client = new ColyseusSDK(serverUrl());
   const options = { ...request.options, v: { core: CORE_PROTOCOL_VERSION, game: request.gameProtocolVersion } };
+  // biome-ignore lint/suspicious/noExplicitAny: SDK overloads don't accept a generic schema constructor.
+  const joining = client.joinOrCreate<State>(request.roomName, options, request.rootSchema as any);
   let room: Room<unknown, State>;
   try {
-    // biome-ignore lint/suspicious/noExplicitAny: SDK overloads don't accept a generic schema constructor.
-    room = await client.joinOrCreate<State>(request.roomName, options, request.rootSchema as any);
+    room = await withTimeout(joining, JOIN_TIMEOUT_MS, "join timed out");
   } catch (err) {
+    // A join that completes after we gave up would hold a seat nobody plays.
+    joining.then(
+      (late) => late.leave().catch(() => {}),
+      () => {},
+    );
     const code = (err as { code?: number }).code;
     if (code === CoreErrorCode.VERSION_MISMATCH) throw new JoinError("version-mismatch", err);
     if (code === CoreErrorCode.AUTH_FAILED) throw new JoinError("auth-failed", err);
     throw new JoinError("unreachable", err);
   }
 
+  // Wait for the first state; give up early if the room closes or errors meanwhile.
   const gotState = await new Promise<boolean>((resolve) => {
-    const timer = setTimeout(() => resolve(false), FIRST_STATE_TIMEOUT_MS);
-    room.onStateChange.once(() => {
+    const finish = (ok: boolean) => {
       clearTimeout(timer);
-      resolve(true);
-    });
+      room.onStateChange.remove(onState);
+      room.onLeave.remove(onFail);
+      room.onError.remove(onFail);
+      resolve(ok);
+    };
+    const onState = () => finish(true);
+    const onFail = () => finish(false);
+    const timer = setTimeout(onFail, FIRST_STATE_TIMEOUT_MS);
+    room.onStateChange(onState);
+    room.onLeave(onFail);
+    room.onError(onFail);
   });
   if (!gotState) {
     room.leave().catch(() => {});

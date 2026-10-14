@@ -9,7 +9,7 @@ import { CORE_PROTOCOL_VERSION } from "@core/shared";
 import type { Application, RequestHandler } from "express";
 import { registerAccountProvider } from "./accounts/AccountProvider";
 import { GamePushAccountProvider } from "./accounts/GamePushAccountProvider";
-import { env, type ServerEnv } from "./env";
+import { env, normalizeOrigin, type ServerEnv } from "./env";
 import { log } from "./log";
 import { metrics } from "./metrics";
 
@@ -32,7 +32,7 @@ export interface GameServerOptions<T extends Record<string, RegisteredHandler>> 
  *  - /playground in development only
  *  - ALLOWED_ORIGINS: only pages from these origins may connect (WebSocket + matchmaking CORS)
  *  - MAX_PAYLOAD_BYTES: larger WebSocket messages are rejected
- *  - REDIS_URL: share rooms and presence across processes/machines (horizontal scaling)
+ *  - REDIS_URL + PUBLIC_ADDRESS: share rooms and presence across processes/machines (horizontal scaling)
  *  - GAMEPUSH_PROJECT_ID + GAMEPUSH_API_SECRET: verify GamePush players on join
  */
 export function createGameServer<T extends Record<string, RegisteredHandler>>(options: GameServerOptions<T>) {
@@ -56,9 +56,12 @@ export function createGameServer<T extends Record<string, RegisteredHandler>>(op
         }
       },
     }),
+    // Without REDIS_URL, Colyseus picks its defaults, which already configure Redis
+    // and public addresses on Colyseus Cloud.
     ...(config.redisUrl
       ? { presence: new RedisPresence(config.redisUrl), driver: new RedisDriver(config.redisUrl) }
       : {}),
+    ...(config.publicAddress ? { publicAddress: config.publicAddress } : {}),
     express: (app: Application) => {
       app.get("/health", (_req, res) => {
         res.json({ ok: true });
@@ -91,17 +94,17 @@ export function createGameServer<T extends Record<string, RegisteredHandler>>(op
 /** True when the page origin may connect. No allowlist = allow all (development). */
 export function isOriginAllowed(origin: string | null | undefined, allowed: string[]): boolean {
   if (allowed.length === 0) return true;
-  return !!origin && allowed.includes(origin.replace(/\/$/, ""));
+  return !!origin && allowed.includes(normalizeOrigin(origin));
 }
 
 function restrictMatchmakingCors(allowed: string[]) {
   const defaults = matchMaker.controller.getCorsHeaders.bind(matchMaker.controller);
   matchMaker.controller.getCorsHeaders = (headers: Headers) => {
     const origin = headers.get("origin");
-    return {
-      ...defaults(headers),
-      "Access-Control-Allow-Origin": isOriginAllowed(origin, allowed) ? (origin ?? "") : "null",
-    };
+    // Colyseus falls back to "*" when the header is missing, so a disallowed page
+    // gets another (allowed) origin instead, which its browser rejects.
+    const allowOrigin = origin && isOriginAllowed(origin, allowed) ? origin : (allowed[0] ?? "");
+    return { ...defaults(headers), "Access-Control-Allow-Origin": allowOrigin, Vary: "Origin" };
   };
 }
 

@@ -113,7 +113,13 @@ export interface MessageOptions {
 export function messageScreen(o: MessageOptions) {
   return h(
     "div",
-    { className: "ui-panel ui-center", role: o.busy ? "status" : "alertdialog", "aria-live": "polite" },
+    {
+      className: "ui-panel ui-center",
+      role: o.busy ? "status" : "alertdialog",
+      "aria-live": "polite",
+      // Busy screens pop up mid-game: focus the panel, not a button a held key could activate.
+      ...(o.busy ? { tabIndex: -1, autofocus: true } : {}),
+    },
     o.title && h("h2", {}, o.title),
     o.busy && h("div", { className: "ui-spinner", "aria-hidden": "true" }),
     h("p", {}, o.body),
