@@ -1,5 +1,6 @@
 import type { I18n } from "../i18n";
-import { h } from "./dom";
+import { isTouchDevice } from "../input";
+import { h, isTextField } from "./dom";
 
 /** A screen is a function so it can be re-rendered when the language changes. */
 export type ScreenRender = () => HTMLElement;
@@ -36,8 +37,17 @@ export class Ui {
     this.renderScreen = render;
     this.screenHost.replaceChildren(render());
     this.screenHost.hidden = false;
-    // Move focus into the dialog for keyboard and screen-reader users.
-    this.screenHost.querySelector<HTMLElement>("[autofocus], button, input, select")?.focus({ preventScroll: true });
+    // Move focus into the dialog for keyboard and screen-reader users. Text fields are
+    // skipped on touch devices: focusing them pops up the on-screen keyboard.
+    const target =
+      this.screenHost.querySelector<HTMLElement>("[autofocus]") ??
+      this.screenHost.querySelector<HTMLElement>("button, input, select");
+    if (target && !(isTouchDevice() && isTextField(target))) target.focus({ preventScroll: true });
+  }
+
+  /** True while `render` is the screen being shown. */
+  isShowing(render: ScreenRender): boolean {
+    return this.renderScreen === render;
   }
 
   hide() {

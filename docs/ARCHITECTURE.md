@@ -118,7 +118,7 @@ Queda de conexão: o SDK tenta reconectar sozinho e a tela mostra "Reconectando�
 | Texto novo | `game/client/src/messages.ts` (14 idiomas; o teste acusa os que faltam) |
 | Fim de partida | `ctx.endMatch({ title, rows })` na cena |
 | HUD do jogo (placar) | Elementos DOM em `ctx.hud`, estilos em `game/client/src/styles.css` |
-| Novo mapa | `content/maps` + `game/client/src/assets.ts` (ver `content/README.md`) |
+| Novo mapa | `content/maps` (e o tileset em `content/tilesets`); carregados sozinhos (ver `content/README.md`) |
 | Sprite animado novo | `content/sprites/<nome>.png+json` (Aseprite) → `sprite.play(animKey("<nome>", "<tag>"))` |
 | Som ou música nova | Arquivo em `content/audio/sfx` ou `content/audio/music` → `ctx.audio.playSfx("<nome>")` |
 | Placar | `ctx.ui.setScores([{ id, name, score }], meuId)`; os dados vêm de um campo do estado que não passa pela área de interesse (veja `roster`) |

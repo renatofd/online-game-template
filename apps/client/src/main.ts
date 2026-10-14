@@ -5,7 +5,5 @@
 import { startClient } from "@core/client";
 import { game } from "@game/client";
 
-startClient(game).catch((err) => {
-  console.error(err);
-  document.body.textContent = "Failed to start the game.";
-});
+// On failure startClient already shows a translated error screen; just log the cause.
+startClient(game).catch((err) => console.error(err));

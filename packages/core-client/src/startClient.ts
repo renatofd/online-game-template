@@ -16,7 +16,7 @@ import { computeZoom, createPhaserConfig } from "./phaserConfig";
 import { createPlatform, type Platform } from "./platform";
 import { BOOT_SCENE_KEY, BootScene, type BootSceneData } from "./scenes/BootScene";
 import { Storage } from "./storage";
-import { h } from "./ui/dom";
+import { h, isTextField } from "./ui/dom";
 import {
   formatStats,
   hudView,
@@ -26,7 +26,7 @@ import {
   resultScreen,
   settingsScreen,
 } from "./ui/screens";
-import { Ui } from "./ui/Ui";
+import { type ScreenRender, Ui } from "./ui/Ui";
 import { Chat, PlayerList, Scoreboard, Toasts } from "./ui/widgets";
 import "./ui/ui.css";
 
@@ -39,7 +39,12 @@ const DEFAULT_RESOLUTION = { width: 640, height: 360 };
  */
 export async function startClient<State>(game: GameModule<State>): Promise<void> {
   const app = new ClientApp(game);
-  await app.start();
+  try {
+    await app.start();
+  } catch (err) {
+    app.showStartupError();
+    throw err;
+  }
 }
 
 class ClientApp<State> {
@@ -51,9 +56,12 @@ class ClientApp<State> {
   private phaser!: Phaser.Game;
   private resolution: { width: number; height: number };
 
+  /** The running match's room. Handlers of older rooms compare against it and ignore themselves. */
   private room?: Room<unknown, State>;
-  /** True while we are leaving on purpose, so onLeave doesn't show "disconnected". */
-  private leaving = false;
+  /** Bumped on every join and on cancel, so a join that finishes too late is discarded. */
+  private joinAttempt = 0;
+  /** True between a connection drop and the reconnect (or the final leave). */
+  private reconnecting = false;
   private playerName = "";
   private gameHud = h("div", { className: "ui-game-hud" });
   private statsEl = h("div", { className: "ui-hud-stats", "aria-hidden": "true" });
@@ -71,21 +79,24 @@ class ClientApp<State> {
   }
 
   async start() {
+    // Show the loading screen right away: the platform SDK can take seconds to load.
+    // The platform's language is only known afterwards, so the locale may change once more.
+    const saved = this.storage.get("locale");
+    this.i18n.setLocale(detectLocale({ saved, browser: navigator.languages }));
+    this.ui = new Ui(document.body, this.i18n);
+    this.ui.show(() => loadingScreen(this.i18n, 0));
+
     this.platform = await createPlatform();
-    this.i18n.setLocale(
-      detectLocale({
-        saved: this.storage.get("locale"),
-        platform: this.platform.getLanguage(),
-        browser: navigator.languages,
-      }),
-    );
+    const locale = detectLocale({ saved, platform: this.platform.getLanguage(), browser: navigator.languages });
+    if (locale !== this.i18n.locale) this.i18n.setLocale(locale);
+    // Keep platform overlays (ads, leaderboards) in the player's language, including a saved choice.
+    this.platform.setLanguage(this.i18n.locale);
 
     // Colyseus debug panel (latency/jitter simulator, state inspector) with ?debug in the URL.
     if (new URLSearchParams(location.search).has("debug")) {
       await import("@colyseus/sdk/debug");
     }
 
-    this.ui = new Ui(document.body, this.i18n);
     this.scoreboard = new Scoreboard(this.i18n);
     this.playerList = new PlayerList(this.i18n);
     this.chat = new Chat(this.i18n, DEFAULT_MAX_CHAT_LENGTH);
@@ -97,7 +108,6 @@ class ClientApp<State> {
     this.platform.onPauseChange((paused) => this.onPlatformPause(paused));
     this.playerName = this.storage.get("name") ?? this.platform.getPlayerName() ?? "";
 
-    this.ui.show(() => loadingScreen(this.i18n, 0));
     this.phaser = new Phaser.Game(createPhaserConfig(this.resolution, [], this.game.backgroundColor));
     this.phaser.events.on(Phaser.Core.Events.PRE_STEP, () => this.input.update());
     this.audio = new AudioManager(this.phaser.sound, this.storage);
@@ -117,6 +127,22 @@ class ClientApp<State> {
       onComplete: () => this.showMenu(),
     };
     this.phaser.scene.start(BOOT_SCENE_KEY, boot);
+  }
+
+  /** Last-resort screen when start() fails (called by startClient). */
+  showStartupError() {
+    if (!this.ui) {
+      document.body.textContent = this.i18n.t("error.startFailed");
+      return;
+    }
+    this.ui.hideHud();
+    this.ui.show(() =>
+      messageScreen({
+        title: this.i18n.t("error.title"),
+        body: this.i18n.t("error.startFailed"),
+        actions: [{ label: this.i18n.t("action.reload"), onClick: () => location.reload(), primary: true }],
+      }),
+    );
   }
 
   // ─── Screens ──────────────────────────────────────────────────────────────
@@ -192,6 +218,14 @@ class ClientApp<State> {
     );
   }
 
+  /** Kept as one function so onReconnect can tell whether it is still the screen showing. */
+  private reconnectScreen: ScreenRender = () =>
+    messageScreen({
+      body: this.i18n.t("reconnecting"),
+      busy: true,
+      actions: [{ label: this.i18n.t("action.leave"), onClick: () => this.exitToMenu() }],
+    });
+
   /** Platform pause (e.g. an ad is playing): mute and release input; the match itself keeps running. */
   private onPlatformPause(paused: boolean) {
     this.audio.setPlatformPaused(paused);
@@ -212,15 +246,32 @@ class ClientApp<State> {
     if (this.playerName) this.storage.set("name", this.playerName);
     const name = this.playerName || `Guest${Math.floor(1000 + Math.random() * 9000)}`;
 
-    this.ui.show(() => messageScreen({ body: this.i18n.t("connecting"), busy: true }));
+    const attempt = ++this.joinAttempt;
+    this.ui.show(() =>
+      messageScreen({
+        body: this.i18n.t("connecting"),
+        busy: true,
+        actions: [
+          {
+            label: this.i18n.t("action.backToMenu"),
+            onClick: () => {
+              this.joinAttempt++;
+              this.showMenu();
+            },
+          },
+        ],
+      }),
+    );
+    let room: Room<unknown, State>;
     try {
-      this.room = await joinRoom<State>({
+      room = await joinRoom<State>({
         roomName: this.game.roomName,
         gameProtocolVersion: this.game.protocolVersion,
         rootSchema: this.game.rootSchema,
         options: { ...this.game.joinOptions?.(), name, locale: this.i18n.locale, auth: this.platform.getAuthPayload() },
       });
     } catch (err) {
+      if (attempt !== this.joinAttempt) return; // cancelled from the connecting screen
       console.error(err);
       const reason = err instanceof JoinError ? err.reason : "unreachable";
       if (reason === "version-mismatch") {
@@ -238,31 +289,54 @@ class ClientApp<State> {
       }
       return;
     }
+    if (attempt !== this.joinAttempt) {
+      // The player went back to the menu while we were connecting.
+      room.leave().catch(() => {});
+      return;
+    }
 
-    this.startMatch(this.room);
+    this.room = room;
+    this.startMatch(room);
   }
 
   private startMatch(room: Room<unknown, State>) {
-    this.leaving = false;
+    this.reconnecting = false;
     // The SDK only auto-reconnects rooms that have been up this long (default 5s), to avoid
     // reconnect loops. 1s still prevents loops and covers drops right after joining.
     room.reconnection.minUptime = 1000;
 
+    // Every handler checks `room === this.room`: a room we already left can still be
+    // reconnecting in the background and must not touch the current screen or match.
     room.onDrop(() => {
+      if (room !== this.room) return;
+      this.reconnecting = true;
       this.input.setActive(false);
-      this.ui.show(() => messageScreen({ body: this.i18n.t("reconnecting"), busy: true }));
+      this.ui.show(this.reconnectScreen);
     });
-    room.onReconnect(() => this.resume());
+    room.onReconnect(() => {
+      if (room !== this.room) {
+        // We left while the socket was down, so that leave never reached the server.
+        room.leave().catch(() => {});
+        return;
+      }
+      this.reconnecting = false;
+      // Don't close a screen the player opened meanwhile.
+      if (this.ui.isShowing(this.reconnectScreen)) this.resume();
+    });
     room.onLeave(() => {
-      if (this.leaving) return;
+      if (room !== this.room) return; // left on purpose (stopMatch clears this.room first)
       this.stopMatch();
       this.showError(this.i18n.t("error.title"), this.i18n.t("error.disconnected"));
     });
 
     const chatEnabled = this.game.chat !== false;
     if (chatEnabled) {
-      room.onMessage(CoreMessage.chat, (m: ChatBroadcast) => this.chat.add({ name: m.name, text: m.text }));
-      room.onMessage(CoreMessage.chatRejected, () => this.chat.addSystem(this.i18n.t("chat.slowDown")));
+      room.onMessage(CoreMessage.chat, (m: ChatBroadcast) => {
+        if (room === this.room) this.chat.add({ name: m.name, text: m.text });
+      });
+      room.onMessage(CoreMessage.chatRejected, () => {
+        if (room === this.room) this.chat.addSystem(this.i18n.t("chat.slowDown"));
+      });
       this.chat.onSend = (text) => room.send(CoreMessage.chat, text);
     }
 
@@ -270,7 +344,7 @@ class ClientApp<State> {
     this.toasts.clear();
     this.chat.clear();
     this.scoreboard.hide();
-    this.playerList.setOpen(false);
+    this.playerList.clear();
     this.ui.showHud(() =>
       hudView(
         this.i18n,
@@ -324,7 +398,7 @@ class ClientApp<State> {
 
   /** Leaves the room (if any) and tears down the running match. */
   private stopMatch() {
-    this.leaving = true;
+    this.reconnecting = false;
     this.input.setActive(false);
     window.clearInterval(this.statsTimer);
     this.chat.clear();
@@ -332,10 +406,15 @@ class ClientApp<State> {
     this.playerList.setOpen(false);
     this.ui.hideHud();
     this.platform.gameplayStop();
-    if (this.phaser.scene.isActive(this.game.gameSceneKey)) this.phaser.scene.stop(this.game.gameSceneKey);
+    // Also shuts down a paused or sleeping scene; already shut down scenes are ignored.
+    this.phaser.scene.stop(this.game.gameSceneKey);
     const room = this.room;
     this.room = undefined;
-    room?.leave().catch(() => {});
+    if (!room) return;
+    // If the socket is down, leave() can't reach the server: make pending reconnect
+    // attempts give up instead of retrying (a late success is left in onReconnect).
+    room.reconnection.maxRetries = 0;
+    room.leave().catch(() => {});
   }
 
   private endMatch(result: MatchResult = {}) {
@@ -358,7 +437,9 @@ class ClientApp<State> {
   private onResize = () => {
     this.phaser?.scale.setZoom(computeZoom(this.resolution));
     const wanted = this.game.orientation ?? "landscape";
-    const portrait = window.innerHeight > window.innerWidth;
+    // Prefer the screen orientation: the window shrinks when the on-screen keyboard opens.
+    const type = screen.orientation?.type;
+    const portrait = type ? type.startsWith("portrait") : window.innerHeight > window.innerWidth;
     const wrong = wanted !== "any" && isTouchDevice() && (wanted === "landscape" ? portrait : !portrait);
     this.ui?.setRotateHint(wrong);
   };
@@ -370,8 +451,9 @@ class ClientApp<State> {
   }
 
   private onGlobalKey = (e: KeyboardEvent) => {
-    if (!this.room || isTyping(e.target)) return;
+    if (!this.room || isTextField(e.target)) return;
     if (e.code === "Escape") {
+      if (this.reconnecting) return; // the reconnect screen closes itself
       if (this.ui.isScreenOpen) this.resume();
       else this.showPauseMenu();
     } else if (e.code === "Enter" && !this.ui.isScreenOpen) {
@@ -395,10 +477,4 @@ function canFullscreen(): boolean {
 function toggleFullscreen() {
   if (document.fullscreenElement) void document.exitFullscreen();
   else void document.documentElement.requestFullscreen().catch(() => {});
-}
-
-function isTyping(target: EventTarget | null): boolean {
-  return (
-    target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement
-  );
 }

@@ -24,6 +24,7 @@ Template for online web games (.io now, MMO-ready later): Phaser 4 client, Colys
 ## Server building blocks (@core/server)
 
 - Rooms extend `GameRoom`; run the simulation with `this.startSimulation(step, TICK_RATE)` (records tick time in /metrics).
+- Apply inputs with `channel.take(inputBudget.refill(id))` (`InputBudget`), never by draining the whole buffer: that lets clients speed-hack. Set room options that clients must not control in `defineRoom(Room, { ... })`.
 - Identity: `this.identity(client)` → `{ id, name, provider, verified }`. Accounts are verified by registered `AccountProvider`s (GamePush auto-registers from env). Set `allowGuests = false` to require accounts.
 - Area of interest: tag collections with `.view()` in the schema and use `InterestManager` (addViewer/removeViewer/update). Entities outside the radius are not sent.
 - Config comes from validated env (`env`, see docs/DEPLOY.md). Log with `log.info/warn/error`, never `console.log` in server code.
@@ -46,7 +47,7 @@ Template for online web games (.io now, MMO-ready later): Phaser 4 client, Colys
 
 ## Maps
 
-Tiled `.tmj`, orthogonal, 16x16, embedded tilesets, CSV layers, object layer `objects` with `spawn` points, `collides=true` tile property for collision. Validate with `pnpm content:validate` (maps, sprites, audio). Client registers maps in `game/client/src/assets.ts`.
+Tiled `.tmj`, orthogonal, 16x16, embedded tilesets, CSV layers, object layer `objects` with `spawn` points, `collides=true` tile property for collision. Validate with `pnpm content:validate` (maps, sprites, audio). Maps and tilesets are auto-discovered by `game/client/src/assets.ts` (tilesets matched by image file name).
 
 ## Commands
 

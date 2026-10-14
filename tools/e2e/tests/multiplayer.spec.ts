@@ -71,3 +71,29 @@ test("holding Tab shows the player list", async ({ page }) => {
   await page.keyboard.up("Tab");
   await expect(page.locator(".ui-playerlist")).toBeHidden();
 });
+
+test("a dropped connection shows the reconnect screen until the room is back", async ({ page, context }) => {
+  await joinMatch(page, "Ivy");
+  const before = await sessionId(page);
+  // The SDK only auto-reconnects rooms that have been up for a moment.
+  await page.waitForTimeout(1500);
+  await context.setOffline(true);
+  await expect(page.getByText("Connection lost")).toBeVisible();
+  // Esc must not close the reconnect screen.
+  await page.keyboard.press("Escape");
+  await expect(page.getByText("Connection lost")).toBeVisible();
+  await context.setOffline(false);
+  await expect(page.getByText("Connection lost")).toBeHidden({ timeout: 20_000 });
+  expect(await sessionId(page)).toBe(before);
+});
+
+test("connecting can be cancelled back to the menu", async ({ page }) => {
+  await page.goto("/?lang=en");
+  await page.locator(".ui-menu").waitFor();
+  // Matchmaking never answers.
+  await page.route("**/matchmake/**", () => {});
+  await page.locator("button[type=submit]").click();
+  await expect(page.getByText("Connecting")).toBeVisible();
+  await page.getByRole("button", { name: "Back to menu" }).click();
+  await expect(page.locator(".ui-menu")).toBeVisible();
+});

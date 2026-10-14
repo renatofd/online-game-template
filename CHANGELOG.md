@@ -2,6 +2,55 @@
 
 Mudanças do template. Jogos derivados: leia antes de `git merge template/main`. Veja [`docs/TEMPLATE.md`](docs/TEMPLATE.md).
 
+## 0.5.0
+
+Revisão geral do template: segurança do servidor, reconexão no cliente, ferramentas no Windows e documentação.
+
+### Novo
+- **`InputBudget` (`@core/server`):** limita cada jogador a cerca de um input por tick. Mandar inputs mais rápido não faz mais andar mais rápido. A sala de exemplo usa.
+- **Mapas e tilesets carregados sozinhos:** qualquer `content/maps/*.tmj` e `content/tilesets/*.png` entra no jogo, sem registrar em `assets.ts`. O tileset é achado pelo nome do arquivo da imagem.
+- **`PUBLIC_ADDRESS`** no servidor, para rodar vários processos com Redis (veja `docs/DEPLOY.md`, seção 4).
+- `pnpm content:validate` também pega: JSON corrompido, imagem de tileset que não existe, spawn dentro de parede ou fora do mapa, `collides` que não é booleano, mapas salvos como `.tmx`, arquivos em pastas que o jogo não lê e o mesmo nome em `music/` e `sfx/`.
+- `pnpm assets:sprites` acha o Aseprite nas pastas comuns do Windows (inclusive Steam) e do macOS.
+- Tela "Conectando…" e "Reconectando…" com botão para voltar ao menu.
+
+### Corrigido
+- **Servidor:**
+  - um jogador parado (aba em segundo plano, conexão caída) não continua "andando" nem ganhando pontos;
+  - o chat é limitado antes de qualquer processamento, e nomes e mensagens enormes não travam mais o servidor;
+  - nomes só com caracteres invisíveis viram o nome padrão;
+  - quem é expulso por mandar mensagens demais não ganha vaga de reconexão;
+  - a área de interesse reenvia uma entidade trocada pelo mesmo id, e libera a visão de quem sai;
+  - o cliente não escolhe mais o mapa da sala (`defineRoom(ArenaRoom, { mapId })`);
+  - `ALLOWED_ORIGINS` aceita maiúsculas e porta padrão, e páginas não permitidas não recebem CORS.
+- **Cliente:**
+  - sair da partida durante uma reconexão deixava uma sessão fantasma, que depois fechava o menu ou encerrava a partida seguinte;
+  - Esc fechava a tela "Reconectando…";
+  - o jogo não ficava centralizado em árabe;
+  - a página ficava em branco enquanto o SDK do GamePush carregava; um servidor do SDK travado agora passa para o próximo;
+  - "Conectando…" podia girar para sempre;
+  - no celular, voltar ao menu abria o teclado;
+  - música parada antes do primeiro toque tocava mesmo assim, e trocas rápidas de música davam erro;
+  - margens de segurança (notch) do lado errado em árabe;
+  - notebooks com tela de toque ganhavam joystick e aviso de girar a tela;
+  - a mensagem "falha ao iniciar" agora é traduzida.
+- **Ferramentas:**
+  - `pnpm check` falhava em todos os arquivos no Windows (fim de linha CRLF): o novo `.gitattributes` mantém LF;
+  - `pnpm loadtest` mostrava zero conexões;
+  - `pnpm init-game` corrompia arquivos com nomes que têm `$` ou aspas;
+  - `pnpm assets:placeholder` não sobrescreve mais seus arquivos sem `--force`;
+  - arquivos com extensão maiúscula (`.PNG`, `.WAV`) passavam na validação mas não carregavam.
+- **Deploy:**
+  - `.env.production` e outros `.env.*` não vão mais para o git nem para a imagem Docker;
+  - o release avisa e não envia ao itch.io quando falta `VITE_SERVER_URL`, e o `.zip` usa a versão da tag;
+  - `docker compose` publica a porta 2567 e não expõe o Redis.
+- Documentação desatualizada corrigida (versões, CI, ADRs, exemplos para o PowerShell).
+
+### Breaking
+- `game/client/src/assets.ts`: `tilesetKey` recebe o caminho da imagem, e `TILESETS`/`MAPS` vêm de globs. Se o seu jogo editou esse arquivo, refaça a mudança sobre a versão nova.
+- O cliente não escolhe mais o mapa: defina `mapId` em `defineRoom(...)`, em `game/server/src/index.ts`.
+- Ao atualizar um jogo já existente: `git config remote.template.tagOpt --no-tags` (veja `docs/TEMPLATE.md`).
+
 ## 0.4.0
 
 Recursos que todo jogo usa: sprites animados, áudio e componentes de interface.

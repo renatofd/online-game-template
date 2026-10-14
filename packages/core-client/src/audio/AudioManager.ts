@@ -43,6 +43,10 @@ export class AudioManager {
   private settings: AudioSettings;
   private music?: Phaser.Sound.BaseSound;
   private musicKey?: string;
+  /** Music requested while audio is locked; only the latest request plays once unlocked. */
+  private pendingMusic?: { key: string; options: MusicOptions };
+  /** Running volume fades by track, so a newer fade (or destroy) cancels the older one. */
+  private fades = new Map<Phaser.Sound.BaseSound, number>();
   private platformPaused = false;
   private listeners = new Set<(s: AudioSettings) => void>();
 
@@ -52,6 +56,11 @@ export class AudioManager {
   ) {
     this.settings = { ...DEFAULTS, ...parse(storage.get(STORAGE_KEY)) };
     this.applyMute();
+    this.sound.on("unlocked", () => {
+      const pending = this.pendingMusic;
+      this.pendingMusic = undefined;
+      if (pending) this.playMusic(pending.key, pending.options);
+    });
   }
 
   get current(): Readonly<AudioSettings> {
@@ -65,8 +74,11 @@ export class AudioManager {
     this.settings.sfx = clamp01(this.settings.sfx);
     this.storage.set(STORAGE_KEY, JSON.stringify(this.settings));
     this.applyMute();
-    if (this.music && "setVolume" in this.music)
+    if (this.music && "setVolume" in this.music) {
+      // An explicit volume change wins over a fade-in still running.
+      this.cancelFade(this.music);
       (this.music as Phaser.Sound.WebAudioSound).setVolume(this.settings.music);
+    }
     for (const fn of this.listeners) fn(this.settings);
   }
 
@@ -89,19 +101,20 @@ export class AudioManager {
   playMusic(key: string, options: MusicOptions = {}) {
     if (this.musicKey === key && this.music?.isPlaying) return;
     if (!this.sound.game.cache.audio.exists(key)) return;
-    const start = () => {
-      this.stopMusic(options.fadeMs);
-      const track = this.sound.add(key, { loop: options.loop ?? true, volume: 0 });
-      this.music = track;
-      this.musicKey = key;
-      track.play();
-      this.fade(track, 0, this.settings.music, options.fadeMs ?? 600);
-    };
-    if (this.sound.locked) this.sound.once("unlocked", start);
-    else start();
+    if (this.sound.locked) {
+      this.pendingMusic = { key, options };
+      return;
+    }
+    this.stopMusic(options.fadeMs);
+    const track = this.sound.add(key, { loop: options.loop ?? true, volume: 0 });
+    this.music = track;
+    this.musicKey = key;
+    track.play();
+    this.fade(track, 0, this.settings.music, options.fadeMs ?? 600);
   }
 
   stopMusic(fadeMs = 400) {
+    this.pendingMusic = undefined;
     const track = this.music;
     this.music = undefined;
     this.musicKey = undefined;
@@ -122,6 +135,7 @@ export class AudioManager {
 
   private fade(track: Phaser.Sound.BaseSound, from: number, to: number, ms: number, done?: () => void) {
     const t = track as Phaser.Sound.WebAudioSound;
+    this.cancelFade(track);
     if (ms <= 0) {
       t.setVolume?.(to);
       done?.();
@@ -129,12 +143,26 @@ export class AudioManager {
     }
     const startTime = performance.now();
     const step = () => {
+      // Stop quietly if the track was destroyed elsewhere (e.g. the sound manager shut down).
+      if (track.pendingRemove || !track.manager) {
+        this.fades.delete(track);
+        return;
+      }
       const k = Math.min(1, (performance.now() - startTime) / ms);
       t.setVolume?.(from + (to - from) * k);
-      if (k < 1) requestAnimationFrame(step);
-      else done?.();
+      if (k < 1) this.fades.set(track, requestAnimationFrame(step));
+      else {
+        this.fades.delete(track);
+        done?.();
+      }
     };
-    requestAnimationFrame(step);
+    this.fades.set(track, requestAnimationFrame(step));
+  }
+
+  private cancelFade(track: Phaser.Sound.BaseSound) {
+    const frame = this.fades.get(track);
+    if (frame !== undefined) cancelAnimationFrame(frame);
+    this.fades.delete(track);
   }
 }
 
