@@ -30,11 +30,12 @@ export interface InterestOptions {
  *  1. Tag the synced collection with `.view()` in the schema, e.g. `players: t.map(Player).view()`.
  *     Items of a `.view()` collection are only sent to clients whose StateView contains them.
  *  2. `interest.addViewer(client)` in onJoin, `interest.removeViewer(client)` in onLeave.
- *  3. Call `interest.update(entities, viewers)` periodically (e.g. every 3rd tick).
+ *  3. Call `interest.update(entities, viewerPosition)` periodically (e.g. every 3rd tick).
  */
 export class InterestManager<E extends object & PositionedEntity> {
   private grid: SpatialHash<string>;
-  private visible = new Map<string, { client: Client; ids: Set<string> }>();
+  /** Per viewer: the entity instance shown under each id (instances, so a replaced entity is re-sent). */
+  private visible = new Map<string, { client: Client; shown: Map<string, E> }>();
   private readonly hideRadius: number;
   private scratch: string[] = [];
   private known = new Set<string>();
@@ -47,11 +48,13 @@ export class InterestManager<E extends object & PositionedEntity> {
   /** Gives the client its StateView. Call in onJoin (before the first patch). */
   addViewer(client: Client) {
     client.view = new StateView();
-    this.visible.set(client.sessionId, { client, ids: new Set() });
+    this.visible.set(client.sessionId, { client, shown: new Map() });
   }
 
+  /** Call in onLeave (not onDrop: a reconnecting client keeps its view). */
   removeViewer(client: Client) {
     this.visible.delete(client.sessionId);
+    client.view?.dispose();
   }
 
   /**
@@ -85,31 +88,31 @@ export class InterestManager<E extends object & PositionedEntity> {
         this.scratch.length = 0;
         for (const id of this.grid.queryRadius(pos.x, pos.y, this.options.radius, this.scratch)) next.add(id);
         // Keep entities already visible until they pass the (larger) hide radius.
-        for (const id of viewer.ids) {
+        for (const id of viewer.shown.keys()) {
           const e = byId.get(id);
           if (e && (e.x - pos.x) ** 2 + (e.y - pos.y) ** 2 <= this.hideRadius ** 2) next.add(id);
         }
       }
 
-      for (const id of viewer.ids) {
-        if (!next.has(id)) {
-          const e = byId.get(id);
-          if (e) view.remove(asRef(e));
-        }
+      // An entity removed from the collection (or replaced under the same id) is
+      // detached, so only still-present instances need an explicit remove.
+      for (const [id, shown] of viewer.shown) {
+        if (!next.has(id) && byId.get(id) === shown) view.remove(asRef(shown));
       }
+      const shown = new Map<string, E>();
       for (const id of next) {
-        if (!viewer.ids.has(id)) {
-          const e = byId.get(id);
-          if (e) view.add(asRef(e));
-        }
+        const e = byId.get(id);
+        if (!e) continue;
+        if (viewer.shown.get(id) !== e) view.add(asRef(e));
+        shown.set(id, e);
       }
-      viewer.ids = next;
+      viewer.shown = shown;
     }
   }
 
   /** Ids currently visible to a client (for tests and debugging). */
   visibleTo(sessionId: string): ReadonlySet<string> {
-    return this.visible.get(sessionId)?.ids ?? new Set();
+    return new Set(this.visible.get(sessionId)?.shown.keys());
   }
 }
 

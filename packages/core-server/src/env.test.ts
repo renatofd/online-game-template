@@ -24,6 +24,10 @@ describe("parseEnv", () => {
     expect(env.logLevel).toBe("info");
   });
 
+  it("normalizes ALLOWED_ORIGINS like browsers do", () => {
+    expect(parseEnv({ ALLOWED_ORIGINS: "https://My.Game:443/" }).allowedOrigins).toEqual(["https://my.game"]);
+  });
+
   it("fills the process port into PUBLIC_ADDRESS", () => {
     expect(parseEnv({ PUBLIC_ADDRESS: "my.game/{port}", NODE_APP_INSTANCE: "2" }).publicAddress).toBe("my.game/2569");
     expect(() => parseEnv({ PUBLIC_ADDRESS: "wss://my.game" })).toThrow(/PUBLIC_ADDRESS/);

@@ -1,23 +1,32 @@
 /**
- * Assets of this game. Sprites (and audio, see audio.ts) are discovered
- * automatically from <repo>/content; maps and tilesets are listed here because
- * the map id and the Tiled tileset name are part of their key.
+ * Assets of this game, discovered automatically from <repo>/content:
+ * drop a file in the right folder and it is loaded. File extensions may be
+ * upper or lower case.
  */
 
-import arenaMapUrl from "@content/maps/arena.tmj?url";
-import terrainUrl from "@content/tilesets/terrain.png";
 import { discoverAudio, discoverSprites, loadAudio, loadSprites } from "@core/client";
 import type Phaser from "phaser";
 
-/** Tileset images, keyed by the tileset *name* used inside Tiled. */
-const TILESETS: Record<string, string> = {
-  terrain: terrainUrl,
-};
+/** "…/content/maps/arena.tmj" → "arena". */
+const fileKey = (path: string) => path.replace(/^.*\//, "").replace(/\.[^.]+$/, "");
+const byFileKey = (urls: Record<string, string>) =>
+  Object.fromEntries(Object.entries(urls).map(([path, url]) => [fileKey(path), url]));
 
-/** Tiled maps, keyed by map id (matches the server's content/maps/<id>.tmj). */
-const MAPS: Record<string, string> = {
-  arena: arenaMapUrl,
-};
+/**
+ * Every content/tilesets/*.png. A Tiled tileset is matched by the file name of
+ * its image ("../tilesets/terrain.png" → "terrain"), so its name in Tiled is free.
+ */
+const TILESETS = import.meta.glob<string>("@content/tilesets/*.png", {
+  eager: true,
+  query: "?url",
+  import: "default",
+  caseSensitive: false,
+});
+
+/** Every content/maps/<id>.tmj, keyed by map id (the server loads the same file). */
+const MAPS = byFileKey(
+  import.meta.glob<string>("@content/maps/*.tmj", { eager: true, query: "?url", import: "default" }),
+);
 
 /**
  * Every content/sprites/<name>.png + <name>.json (Aseprite export). Drop a new
@@ -25,7 +34,12 @@ const MAPS: Record<string, string> = {
  * per Aseprite tag named "<name>/<tag>".
  */
 const SPRITES = discoverSprites(
-  import.meta.glob<string>("@content/sprites/*.png", { eager: true, query: "?url", import: "default" }),
+  import.meta.glob<string>("@content/sprites/*.png", {
+    eager: true,
+    query: "?url",
+    import: "default",
+    caseSensitive: false,
+  }),
   import.meta.glob<string>("@content/sprites/*.json", { eager: true, query: "?url", import: "default" }),
 );
 
@@ -35,19 +49,25 @@ const SPRITES = discoverSprites(
  * become one sound; the browser plays the first it supports.
  */
 const AUDIO = discoverAudio(
-  import.meta.glob<string>("@content/audio/*/*.{ogg,mp3,m4a,wav}", { eager: true, query: "?url", import: "default" }),
+  import.meta.glob<string>("@content/audio/{music,sfx}/*.{ogg,mp3,m4a,wav}", {
+    eager: true,
+    query: "?url",
+    import: "default",
+    caseSensitive: false,
+  }),
 );
 
 export const MUSIC_THEME = "theme";
 export const SFX_JOIN = "join";
 export const SFX_UI = "ui";
 
-export const tilesetKey = (name: string) => `tileset:${name}`;
+/** Texture key of a Tiled tileset, from its image path ("../tilesets/terrain.png" → "tileset:terrain"). */
+export const tilesetKey = (image: string) => `tileset:${fileKey(image)}`;
 export const mapKey = (id: string) => `map:${id}`;
 export const SPRITE_PLAYER = "player";
 
 export function preloadAssets(scene: Phaser.Scene) {
-  for (const [name, url] of Object.entries(TILESETS)) scene.load.image(tilesetKey(name), url);
+  for (const [path, url] of Object.entries(TILESETS)) scene.load.image(tilesetKey(path), url);
   for (const [id, url] of Object.entries(MAPS)) scene.load.tilemapTiledJSON(mapKey(id), url);
   loadSprites(scene, SPRITES);
   loadAudio(scene, AUDIO);

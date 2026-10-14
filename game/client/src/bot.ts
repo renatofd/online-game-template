@@ -9,6 +9,9 @@ import { ArenaState, type MoveInput, PROTOCOL_VERSION, ROOM_ARENA, TICK_RATE } f
 type Axis = -1 | 0 | 1;
 const randomAxis = (): Axis => (Math.floor(Math.random() * 3) - 1) as Axis;
 
+/** Room the load test joins by default (tools/loadtest). */
+export const BOT_ROOM = ROOM_ARENA;
+
 export interface BotOptions {
   endpoint: string;
   roomName?: string;
@@ -19,7 +22,7 @@ export interface BotOptions {
 export async function runBot(options: BotOptions): Promise<() => void> {
   const client = new ColyseusSDK(options.endpoint);
   const room = await client.joinOrCreate<ArenaState>(
-    options.roomName || ROOM_ARENA,
+    options.roomName || BOT_ROOM,
     { name: options.name, v: { core: CORE_PROTOCOL_VERSION, game: PROTOCOL_VERSION } },
     ArenaState,
   );

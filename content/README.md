@@ -17,7 +17,7 @@ content/
     └── sfx/join.wav, ui.wav Efeitos (chaves "join", "ui")
 ```
 
-A arte e os sons atuais são **provisórios**, gerados por `pnpm assets:placeholder`. Substitua à vontade, mas **não rode esse comando depois**, porque ele sobrescreve os arquivos.
+A arte e os sons atuais são **provisórios**, gerados por `pnpm assets:placeholder`. Substitua à vontade. O comando se recusa a rodar quando os arquivos já existem; só com `--force` ele sobrescreve tudo.
 
 `pnpm content:validate` confere mapas, sprites e áudio. Ele roda na CI e no `pnpm check`.
 
@@ -91,6 +91,6 @@ Na layer `objects`, adicione **pontos** (ou retângulos) com a classe **`spawn`*
 ## Adicionando um mapa novo
 
 1. Crie `content/maps/<id>.tmj` seguindo as convenções acima.
-2. Registre a URL em `game/client/src/assets.ts` (`MAPS`). Se ele usar um tileset novo, registre também em `TILESETS`, com o **mesmo nome do tileset no Tiled**.
+2. Se ele usar um tileset novo, coloque a imagem em `content/tilesets/`. Mapas e tilesets são carregados sozinhos: o tileset é encontrado pelo **nome do arquivo** da imagem.
 3. Crie a sala com `{ mapId: "<id>" }` (veja `game/server/src/rooms/ArenaRoom.ts`).
 4. Rode `pnpm content:validate`.

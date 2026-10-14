@@ -4,8 +4,10 @@
  *
  *   pnpm assets:sprites
  *
- * Needs the Aseprite CLI (or LibreSprite, its free fork). If it's not on PATH,
- * point ASEPRITE to it, e.g. ASEPRITE="C:/Program Files/Aseprite/Aseprite.exe".
+ * Needs the Aseprite CLI (or LibreSprite, its free fork). On Windows the usual
+ * install folders (including Steam) are tried. Otherwise point ASEPRITE to it:
+ *   PowerShell:  $env:ASEPRITE="C:/Program Files/Aseprite/Aseprite.exe"; pnpm assets:sprites
+ *   macOS/Linux: ASEPRITE=/path/to/aseprite pnpm assets:sprites
  * Without the CLI you can export by hand in Aseprite: File → Export Sprite Sheet,
  * Output: JSON Data, "Array", Item Filename "{frame}", Tags checked.
  */
@@ -15,7 +17,25 @@ import { join } from "node:path";
 import { SPRITES_DIR } from "./paths";
 
 const SRC = join(SPRITES_DIR, "src");
-const bin = process.env.ASEPRITE ?? "aseprite";
+const bin = process.env.ASEPRITE ?? defaultBinary();
+
+function defaultBinary(): string {
+  if (process.platform === "win32") {
+    const candidates = [
+      join(process.env.ProgramFiles ?? "C:/Program Files", "Aseprite/Aseprite.exe"),
+      join(
+        process.env["ProgramFiles(x86)"] ?? "C:/Program Files (x86)",
+        "Steam/steamapps/common/Aseprite/Aseprite.exe",
+      ),
+      join(process.env.ProgramFiles ?? "C:/Program Files", "LibreSprite/libresprite.exe"),
+    ];
+    const found = candidates.find((c) => existsSync(c));
+    if (found) return found;
+  }
+  if (process.platform === "darwin" && existsSync("/Applications/Aseprite.app/Contents/MacOS/aseprite"))
+    return "/Applications/Aseprite.app/Contents/MacOS/aseprite";
+  return "aseprite";
+}
 
 const sources = existsSync(SRC) ? readdirSync(SRC).filter((f) => /\.(aseprite|ase)$/i.test(f)) : [];
 if (sources.length === 0) {

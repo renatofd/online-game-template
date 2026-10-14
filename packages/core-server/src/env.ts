@@ -40,13 +40,11 @@ export function parseEnv(source: NodeJS.ProcessEnv = process.env): ServerEnv {
   const logLevel = (source.LOG_LEVEL ?? (isProduction ? "info" : "debug")) as ServerEnv["logLevel"];
   if (!LOG_LEVELS.includes(logLevel)) errors.push(`LOG_LEVEL must be one of ${LOG_LEVELS.join(", ")}`);
 
-  const allowedOrigins = (source.ALLOWED_ORIGINS ?? "")
-    .split(",")
-    .map((o) => o.trim().replace(/\/$/, ""))
-    .filter(Boolean);
-  for (const origin of allowedOrigins) {
-    if (!/^https?:\/\/[^/]+$/.test(origin))
-      errors.push(`ALLOWED_ORIGINS entry "${origin}" must look like https://host`);
+  const allowedOrigins: string[] = [];
+  for (const entry of (source.ALLOWED_ORIGINS ?? "").split(",").map((o) => o.trim().replace(/\/$/, ""))) {
+    if (!entry) continue;
+    if (!/^https?:\/\/[^/]+$/.test(entry)) errors.push(`ALLOWED_ORIGINS entry "${entry}" must look like https://host`);
+    else allowedOrigins.push(normalizeOrigin(entry));
   }
 
   const redisUrl = source.REDIS_URL || undefined;
@@ -81,6 +79,18 @@ export function parseEnv(source: NodeJS.ProcessEnv = process.env): ServerEnv {
     logLevel,
     maxPayloadBytes,
   };
+}
+
+/**
+ * Origin in the form browsers send it: lowercase host, no default port
+ * ("https://My.Game:443" → "https://my.game").
+ */
+export function normalizeOrigin(origin: string): string {
+  try {
+    return new URL(origin).origin;
+  } catch {
+    return origin;
+  }
 }
 
 /** Walks up from the working directory to find <repo>/content/maps. */

@@ -74,10 +74,10 @@ export abstract class GameRoom<T extends RoomOptions = RoomOptions> extends Room
   override maxMessagesPerSecond = 120;
 
   /** Room chat settings, or false to disable chat in this room. */
-  protected chat: ChatOptions | false = DEFAULT_CHAT;
+  protected chat: ChatOptions | false = { ...DEFAULT_CHAT };
 
-  /** Token bucket per session for chat rate limiting. */
-  private chatBuckets = new Map<string, { tokens: number; at: number }>();
+  /** Token bucket per client for chat rate limiting (weak: gone when the client is). */
+  private chatBuckets = new WeakMap<Client, { tokens: number; at: number }>();
 
   constructor() {
     super();
@@ -94,23 +94,23 @@ export abstract class GameRoom<T extends RoomOptions = RoomOptions> extends Room
 
   private handleChat(client: Client, raw: unknown) {
     const options = this.chat;
-    if (!options) return;
-    const text = sanitizeChat(raw, options.maxLength);
-    if (!text) return;
+    if (!options || typeof raw !== "string") return;
 
+    // Rate limit before any text processing, so a flood costs the server nothing.
     const now = Date.now();
-    const bucket = this.chatBuckets.get(client.sessionId) ?? { tokens: options.burst, at: now };
+    const bucket = this.chatBuckets.get(client) ?? { tokens: options.burst, at: now };
     bucket.tokens = Math.min(options.burst, bucket.tokens + ((now - bucket.at) / 1000) * options.perSecond);
     bucket.at = now;
+    this.chatBuckets.set(client, bucket);
     if (bucket.tokens < 1) {
-      this.chatBuckets.set(client.sessionId, bucket);
       metrics.inc("chat_rate_limited_total");
       client.send(CoreMessage.chatRejected, { reason: "rate" });
       return;
     }
     bucket.tokens -= 1;
-    this.chatBuckets.set(client.sessionId, bucket);
 
+    const text = sanitizeChat(raw, options.maxLength);
+    if (!text) return;
     const filtered = this.filterChat(text, client);
     if (!filtered) return;
     const message: ChatBroadcast = { from: client.sessionId, name: this.identity(client).name, text: filtered };
@@ -174,8 +174,16 @@ export abstract class GameRoom<T extends RoomOptions = RoomOptions> extends Room
 
   override onDrop(client: Client, _code?: CloseCode) {
     if (this.reconnectGraceSeconds <= 0) return;
+    // Clients kicked for flooding (maxMessagesPerSecond) must not get their seat back.
+    // Colyseus closes them like any other error, so check its per-client counter.
+    const sent = (client as Client & { _numMessagesLastSecond?: number })._numMessagesLastSecond ?? 0;
+    if (sent > this.maxMessagesPerSecond) {
+      metrics.inc("flood_kicks_total");
+      log.warn("client kicked for flooding", { room: this.roomName, sessionId: client.sessionId });
+      return;
+    }
     // Not awaited: the framework routes the outcome to onReconnect() or onLeave().
-    // The catch only silences the rejection when the room is already disposing.
+    // The rejection (grace timeout, room disposing) needs no handling here.
     this.allowReconnection(client, this.reconnectGraceSeconds).catch(() => {});
   }
 }

@@ -26,8 +26,8 @@ export interface GameMap {
  *
  * Collision rule: a cell is solid when any tile layer has a tile there whose
  * tileset tile has the boolean property `collides = true` (set it in Tiled's
- * tileset editor). Phaser's `setCollisionByProperty({ collides: true })` uses
- * the same rule, so client and server agree.
+ * tileset editor). The server and the client's prediction both build their
+ * collision from this function and the same .tmj, so they agree exactly.
  */
 export function parseTiledMap(map: TiledMap, options: ValidateOptions = {}): GameMap {
   const errors = validateTiledMap(map, options);

@@ -17,7 +17,9 @@ export const game: GameModule<ArenaState> = {
   preload: preloadAssets,
   scenes: [GameScene],
   gameSceneKey: GAME_SCENE_KEY,
-  // Example action (unused by the demo rules): shows how keys, gamepad and touch buttons are bound.
+  // Actions besides movement. The demo has none; a dash would look like
+  // { id: "dash", keys: ["Space"], gamepadButtons: [0], touchLabel: "action.dash" },
+  // read in the scene with ctx.input.isDown("dash").
   actions: [],
   messages,
   menuMusic: MUSIC_THEME,

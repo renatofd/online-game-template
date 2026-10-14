@@ -35,7 +35,8 @@ pnpm install
 pnpm init-game --name "Space Blobs"
 
 # 4. Primeiro commit e push
-git add -A && git commit -m "chore: start Space Blobs from template"
+git add -A
+git commit -m "chore: start Space Blobs from template"
 git push -u origin main
 ```
 
@@ -69,7 +70,7 @@ pnpm check
 Precisa de algo novo no núcleo (um recurso de rede, um tipo de tela, uma plataforma)?
 
 1. Faça a mudança **no repositório do template**, com testes, e publique uma versão no `CHANGELOG.md`.
-2. Nos jogos, rode `git fetch template && git merge template/main`.
+2. Nos jogos, rode `git fetch template` e depois `git merge template/main`.
 
 Se for urgente, dá para mudar no jogo e depois levar para o template com `git cherry-pick`. Só não deixe a mudança morar apenas no jogo, senão ela vira conflito em toda atualização.
 

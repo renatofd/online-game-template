@@ -58,7 +58,7 @@ Abra http://localhost:3000 em **duas ou mais abas** para ver os jogadores sincro
 | `pnpm pack:client` | Gera o `.zip` do cliente para GamePush/itch.io (depois do build) |
 | `pnpm e2e` | Testes ponta a ponta com navegadores reais (Playwright) |
 | `pnpm loadtest` | Bots para teste de carga |
-| `pnpm assets:placeholder` | Regera a arte e o mapa provisórios (sobrescreve!) |
+| `pnpm assets:placeholder --force` | Volta a arte, os sons e o mapa provisórios (sobrescreve os arquivos em `content/`) |
 | `pnpm init-game --name "Meu Jogo"` | Renomeia o projeto ao criar um jogo novo |
 
 ## Estrutura

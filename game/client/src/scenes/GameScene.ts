@@ -78,9 +78,13 @@ export class GameScene extends Phaser.Scene {
   /** Renders the Tiled map and returns the parsed collision data used for prediction. */
   private buildMap(mapId: string): GameMap {
     const key = mapKey(mapId);
+    // Same .tmj the server parsed, so client-side collision matches exactly.
+    const raw = this.cache.tilemap.get(key)?.data as TiledMap | undefined;
+    if (!raw) throw new Error(`Map "${mapId}" not found: add content/maps/${mapId}.tmj`);
+
     const map = this.make.tilemap({ key });
-    const tilesets = map.tilesets
-      .map((ts) => map.addTilesetImage(ts.name, tilesetKey(ts.name)))
+    const tilesets = raw.tilesets
+      .map((ts) => map.addTilesetImage(ts.name ?? "", tilesetKey(ts.image ?? "")))
       .filter((t): t is Phaser.Tilemaps.Tileset => t !== null);
 
     for (const layer of map.layers) map.createLayer(layer.name, tilesets);
@@ -88,8 +92,6 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
     this.cameras.main.setRoundPixels(true);
 
-    // Same .tmj the server parsed, so client-side collision matches exactly.
-    const raw = this.cache.tilemap.get(key)?.data as TiledMap;
     return parseTiledMap(raw, { tileSize: TILE_SIZE });
   }
 

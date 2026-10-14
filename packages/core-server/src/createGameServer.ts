@@ -9,7 +9,7 @@ import { CORE_PROTOCOL_VERSION } from "@core/shared";
 import type { Application, RequestHandler } from "express";
 import { registerAccountProvider } from "./accounts/AccountProvider";
 import { GamePushAccountProvider } from "./accounts/GamePushAccountProvider";
-import { env, type ServerEnv } from "./env";
+import { env, normalizeOrigin, type ServerEnv } from "./env";
 import { log } from "./log";
 import { metrics } from "./metrics";
 
@@ -56,6 +56,8 @@ export function createGameServer<T extends Record<string, RegisteredHandler>>(op
         }
       },
     }),
+    // Without REDIS_URL, Colyseus picks its defaults, which already configure Redis
+    // and public addresses on Colyseus Cloud.
     ...(config.redisUrl
       ? { presence: new RedisPresence(config.redisUrl), driver: new RedisDriver(config.redisUrl) }
       : {}),
@@ -92,17 +94,17 @@ export function createGameServer<T extends Record<string, RegisteredHandler>>(op
 /** True when the page origin may connect. No allowlist = allow all (development). */
 export function isOriginAllowed(origin: string | null | undefined, allowed: string[]): boolean {
   if (allowed.length === 0) return true;
-  return !!origin && allowed.includes(origin.replace(/\/$/, ""));
+  return !!origin && allowed.includes(normalizeOrigin(origin));
 }
 
 function restrictMatchmakingCors(allowed: string[]) {
   const defaults = matchMaker.controller.getCorsHeaders.bind(matchMaker.controller);
   matchMaker.controller.getCorsHeaders = (headers: Headers) => {
     const origin = headers.get("origin");
-    return {
-      ...defaults(headers),
-      "Access-Control-Allow-Origin": isOriginAllowed(origin, allowed) ? (origin ?? "") : "null",
-    };
+    // Colyseus falls back to "*" when the header is missing, so a disallowed page
+    // gets another (allowed) origin instead, which its browser rejects.
+    const allowOrigin = origin && isOriginAllowed(origin, allowed) ? origin : (allowed[0] ?? "");
+    return { ...defaults(headers), "Access-Control-Allow-Origin": allowOrigin, Vary: "Origin" };
   };
 }
 

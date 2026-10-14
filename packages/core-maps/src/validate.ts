@@ -42,12 +42,23 @@ export function validateTiledMap(map: TiledMap, options: ValidateOptions = {}): 
       errors.push(`tileset "${ts.name}" must use ${tileSize}x${tileSize} tiles`);
     }
     if (!ts.image) errors.push(`tileset "${ts.name}" must be a single image (image collections are not supported)`);
+    for (const tile of ts.tiles ?? []) {
+      const collides = tile.properties?.find((p) => p.name === "collides");
+      if (collides && collides.type !== "bool") {
+        errors.push(
+          `tileset "${ts.name}" tile ${tile.id}: property "collides" must be of type bool, got ${collides.type}`,
+        );
+      }
+    }
   }
 
   const layers = flattenLayers(map.layers);
   for (const layer of layers) {
-    if (layer.type === "tilelayer" && typeof layer.data === "string") {
+    if (layer.type !== "tilelayer") continue;
+    if (typeof layer.data === "string") {
       errors.push(`layer "${layer.name}" uses encoding "${layer.encoding}"; set Tile Layer Format to CSV`);
+    } else if (layer.data.length !== map.width * map.height) {
+      errors.push(`layer "${layer.name}" has ${layer.data.length} tiles, expected ${map.width * map.height}`);
     }
   }
 
@@ -56,7 +67,13 @@ export function validateTiledMap(map: TiledMap, options: ValidateOptions = {}): 
     errors.push(`missing object layer "${REQUIRED_LAYERS.objects}"`);
   } else if (objects.type === "objectgroup") {
     const spawns = objects.objects.filter((o) => (o.type ?? o.class) === OBJECT_CLASSES.spawn);
-    if (spawns.length === 0) errors.push(`object layer "${REQUIRED_LAYERS.objects}" needs at least one "spawn" object`);
+    if (spawns.length === 0) {
+      const named = objects.objects.some((o) => o.name === OBJECT_CLASSES.spawn);
+      errors.push(
+        `object layer "${REQUIRED_LAYERS.objects}" needs at least one "spawn" object` +
+          (named ? ' (an object is *named* "spawn": set its Class to "spawn" instead)' : ""),
+      );
+    }
   }
 
   return errors;

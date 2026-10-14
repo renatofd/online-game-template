@@ -1,7 +1,10 @@
 /**
  * Generates placeholder pixel art and a sample map so the template runs out of
  * the box. Replace the outputs with real art at any time; this script is only
- * needed again if you want to reset them.
+ * needed again if you want to reset them, and then it must be run with --force
+ * because it overwrites them:
+ *
+ *   pnpm assets:placeholder --force
  *
  * Outputs:
  *   content/tilesets/terrain.png  4 tiles, 16x16, extruded (margin 1, spacing 2)
@@ -12,11 +15,29 @@
  *   content/audio/sfx/ui.wav      UI tick (settings slider feedback)
  *   content/audio/music/theme.wav short chiptune loop
  */
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { TILE_SIZE } from "@game/shared";
 import { PNG } from "pngjs";
 import { CONTENT_DIR, MAPS_DIR } from "./paths";
+
+const OUTPUTS = [
+  "tilesets/terrain.png",
+  "sprites/player.png",
+  "sprites/player.json",
+  "maps/arena.tmj",
+  "audio/sfx/join.wav",
+  "audio/sfx/ui.wav",
+  "audio/music/theme.wav",
+];
+const existing = OUTPUTS.filter((f) => existsSync(join(CONTENT_DIR, f)));
+if (existing.length > 0 && !process.argv.includes("--force")) {
+  console.error(
+    `These files already exist and would be overwritten:\n  content/${existing.join("\n  content/")}\n` +
+      "Run `pnpm assets:placeholder --force` to replace them with the placeholders.",
+  );
+  process.exit(1);
+}
 
 type RGBA = [number, number, number, number];
 

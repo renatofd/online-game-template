@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Headless bots that join the game and wander around (behaviour from @game/client/bot). For load tests and for populating rooms during playtests.",
   "scripts": {
-    "start": "tsx src/bots.ts --endpoint ws://localhost:2567 --room arena --numClients 20",
+    "start": "tsx src/bots.ts --endpoint ws://localhost:2567 --numClients 20",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
